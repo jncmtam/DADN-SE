@@ -1,8 +1,8 @@
 # MULTI-DISCIPLINARY PROJECT
-## TOPIC: HAMSTER CARE MOBILE APP
-### GROUP NAME: `NUMBER ONE`
+## <span style="color:#007bff;">TOPIC: HAMSTER CARE MOBILE APP</span>
+### <span style="color:#007bff;">GROUP NAME: `NUMBER ONE`</span>
 
-## GROUP INFORMATION
+## <span style="color:#007bff;">GROUP INFORMATION</span>
 | No. | Name                  | Role        |
 |-----|-----------------------|------------|
 | 1   | Đoàn Ngọc Hoàng Sơn  | Frontend   |
@@ -12,7 +12,7 @@
 | 5   | Mai Hải Sơn          | Backend    |
 
 ---
-## Project Introduction
+## <span style="color:#007bff;">Project Introduction</span>
 The demand for pet ownership has been steadily increasing, encompassing not only traditional pets like dogs and cats but also a variety of unconventional choices. Among these, hamsters have gained popularity due to their small size and adorable appearance. They are now widely available in pet stores, with some shops specializing exclusively in hamsters.
 
 However, raising hamsters comes with significant challenges. These small animals are highly susceptible to illness and require strict environmental conditions to thrive. Pet shop owners and breeders often invest heavily in specialized equipment to maintain optimal living conditions. Despite these efforts, much of the monitoring and care still rely on human intervention. Even a minor oversight can lead to severe consequences, placing immense pressure on caretakers.
@@ -20,7 +20,7 @@ However, raising hamsters comes with significant challenges. These small animals
 To address this issue, we propose the development of a **smart system** that automates the monitoring and regulation of key environmental factors such as **temperature**, **humidity**, and **lighting**. Additionally, this system will provide **real-time data** on habitat conditions and enable **remote control** of various aspects of hamster care, ensuring a healthier and more sustainable environment for these pets.
 
 ---
-## Features
+## <span style="color:#007bff;">Features</span>
 ### 1. Environmental Monitoring and Adjustment
 The system will utilize sensors to measure:
 - Temperature
@@ -52,15 +52,13 @@ Collected data will be stored for **trend analysis** and **environmental assessm
   - **Manual Mode**: Users manually control devices.
 
 ---
-## Tech Stack
+## <span style="color:#007bff;">Tech Stack</span>
 | Technology     | Icon                                           |
 |---------------|------------------------------------------------|
 | Gin Framework | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/go/go-original.svg" width="40" /> |
 | Postgres      | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" width="40" /> |
 | Docker        | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" width="40" /> |
 | GitHub Actions | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" width="40" /> |
-| MQTT Broker   | ![Adafruit Logo](https://cdn-shop.adafruit.com/static/adafruit_logo.png) |
+| MQTT Broker (Adafruit)   | <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Banana-Single.jpg" alt="Fruit Banana" width="150"/> |
 
 ---
-## Conclusion
-Our **Hamster Care Mobile App** aims to improve the quality of life for hamsters and reduce the burden on caretakers by offering a **smart automated system**. This system will ensure that hamsters are provided with optimal living conditions, making pet care easier and more efficient.
