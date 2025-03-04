@@ -1,4 +1,13 @@
-## IoT HamsterCare API Documentation
+## I. Adafruit response body
+```json
+{
+  "id": "abc123",
+  "value": "25.6",
+  "feed_key": "temperature",
+  "created_at": "2025-03-04T10:30:00Z"
+}
+```
+## II. IoT HamsterCare API Documentation
 
 ### 1. Authentication
 #### POST /auth/register
@@ -358,8 +367,3 @@ Payload:
 ```
 
 ---
-### 8. Security
-- JWT Authentication
-- Rate Limiting
-- Refresh Token Support
-
