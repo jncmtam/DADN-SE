@@ -59,7 +59,7 @@ Collected data will be stored for **trend analysis** and **environmental assessm
 | Postgres      | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postgresql/postgresql-original.svg" width="40" /> |
 | Docker        | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" width="40" /> |
 | GitHub Actions | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" width="40" /> |
-| MQTT Broker   | <img src="https://upload.wikimedia.org/wikipedia/commons/3/3b/MQTT_logo.svg" width="40" /> |
+| MQTT Broker   | ![Adafruit Logo](https://cdn-shop.adafruit.com/static/adafruit_logo.png) |
 
 ---
 ## Conclusion
