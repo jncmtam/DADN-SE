@@ -1,369 +1,252 @@
-## I. Adafruit response body
-```json
-{
-  "id": "abc123",
-  "value": "25.6",
-  "feed_key": "temperature",
-  "created_at": "2025-03-04T10:30:00Z"
-}
-```
-## II. IoT HamsterCare API Documentation
+# REST API Design
 
-### 1. Authentication
-#### POST /auth/register
-**Request:**
-```json
-{
-  "name": "string",
-  "email": "string",
-  "username": "string",
-  "password": "string"
-}
-```
-**Response:**
-```json
-{
-  "message": "User Registered",
-  "user": {
-    "id": "string",
-    "name": "string",
-    "email": "string"
-  }
-}
-```
+## 1. Xác thực & Người dùng
 
-#### POST /auth/login
-**Request:**
-```json
-{
-  "email": "string",
-  "password": "string"
-}
-```
-**Response:**
-```json
-{
-  "token": "string",
-  "user": {
-    "id": "string",
-    "name": "string",
-    "email": "string"
-  }
-}
-```
-
-#### POST /auth/logout
-**Request Header:**
-```json
-{
-  "Authorization": "Bearer token"
-}
-```
-**Response:**
-```json
-{
-  "message": "Logout successfully"
-}
-```
-
-#### GET /auth/profile
-**Request Header:**
-```json
-{
-  "Authorization": "Bearer token"
-}
-```
-**Response:**
-```json
-{
-  "id": "string",
-  "name": "string",
-  "email": "string",
-  "startDate": "date"
-}
-```
-
----
-### 2. Device Management
-#### GET /devices
-**Request Header:**
-```json
-{
-  "Authorization": "Bearer token"
-}
-```
-**Response:**
-```json
-[
+### **Admin**
+- `POST /admin/login` → Đăng nhập admin  
+  **Request:**  
+  ```json
   {
-    "id": "string",
-    "name": "Fan",
-    "status": "ON/OFF",
-    "mode": "Auto/Manual",
-    "type": "Actuator",
-    "cage_id": "string"
+    "email": "admin@example.com",
+    "password": "password123"
   }
-]
-```
-
-#### POST /devices
-**Request:**
-```json
-{
-  "name": "string",
-  "type": "Actuator",
-  "cage_id": "string"
-}
-```
-**Response:**
-```json
-{
-  "message": "Device Created",
-  "device": {
-    "id": "string",
-    "name": "string",
-    "status": "OFF",
-    "type": "Actuator"
-  }
-}
-```
-
-#### PUT /devices/:id
-**Request:**
-```json
-{
-  "status": "ON/OFF"
-}
-```
-**Response:**
-```json
-{
-  "message": "Device Updated",
-  "device": {
-    "id": "string",
-    "status": "ON"
-  }
-}
-```
-
-#### PATCH /devices/:id/mode
-**Request:**
-```json
-{
-  "mode": "Auto/Manual"
-}
-```
-**Response:**
-```json
-{
-  "message": "Mode Updated",
-  "device": {
-    "id": "string",
-    "mode": "Auto"
-  }
-}
-```
-
-#### DELETE /devices/:id
-**Response:**
-```json
-{
-  "message": "Device Deleted"
-}
-```
-
-#### GET /devices/:id/logs
-**Response:**
-```json
-[
+  ```
+  **Response:**  
+  ```json
   {
-    "timestamp": "datetime",
-    "status": "ON/OFF"
+    "token": "jwt-token",
+    "role": "admin"
   }
-]
-```
+  ```
 
----
-### 3. Cage Management
-#### GET /cages
-**Response:**
-```json
-[
+- `GET /admin/users` → Xem danh sách người dùng  
+  **Response:**  
+  ```json
+  [
+    {
+      "id": 1,
+      "name": "User A",
+      "email": "usera@example.com",
+      "role": "user"
+    }
+  ]
+  ```
+
+- `POST /admin/users` → Tạo người dùng mới  
+  **Request:**  
+  ```json
   {
-    "id": "string",
-    "name": "Cage 1",
-    "temperature": "number",
-    "humidity": "number",
-    "water_level": "number"
+    "name": "User B",
+    "email": "userb@example.com",
+    "role": "user"
   }
-]
-```
-
-#### POST /cages
-**Request:**
-```json
-{
-  "name": "string",
-  "devices": ["device_id1", "device_id2"]
-}
-```
-**Response:**
-```json
-{
-  "message": "Cage Created",
-  "cage": {
-    "id": "string",
-    "name": "string"
-  }
-}
-```
-
-#### PUT /cages/:id
-**Request:**
-```json
-{
-  "name": "string"
-}
-```
-**Response:**
-```json
-{
-  "message": "Cage Updated"
-}
-```
-
-#### DELETE /cages/:id
-**Response:**
-```json
-{
-  "message": "Cage Deleted"
-}
-```
-
----
-### 4. Automation Rules
-#### GET /devices/:id/rules
-**Response:**
-```json
-[
+  ```
+  **Response:**  
+  ```json
   {
-    "id": "string",
-    "condition": "temp > 28",
-    "action": "turn on Fan"
+    "id": 2,
+    "name": "User B",
+    "email": "userb@example.com",
+    "role": "user"
   }
-]
-```
+  ```
 
-#### POST /devices/:id/rules
-**Request:**
-```json
-{
-  "condition": "temp > 28",
-  "action": "turn on Fan"
-}
-```
-**Response:**
-```json
-{
-  "message": "Rule Created"
-}
-```
-
-#### PATCH /devices/:id/rules/:ruleId
-**Request:**
-```json
-{
-  "condition": "temp > 30"
-}
-```
-**Response:**
-```json
-{
-  "message": "Rule Updated"
-}
-```
-
-#### DELETE /devices/:id/rules/:ruleId
-**Response:**
-```json
-{
-  "message": "Rule Deleted"
-}
-```
-
----
-### 5. Notifications
-#### GET /notifications
-**Response:**
-```json
-[
+- `DELETE /admin/users/:id` → Xóa người dùng  
+  **Response:**  
+  ```json
   {
-    "id": "string",
-    "title": "Temperature Alert",
-    "body": "Overheat!",
-    "read": false
+    "message": "User deleted successfully"
   }
-]
-```
+  ```
 
-#### PUT /notifications/:id
-**Request:**
-```json
-{
-  "read": true
-}
-```
-**Response:**
-```json
-{
-  "message": "Notification Read"
-}
-```
+### **User**
+- `POST /user/login` → Đăng nhập bằng số điện thoại hoặc email  
+  **Request:**  
+  ```json
+  {
+    "identifier": "user@example.com" 
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "message": "OTP sent to email or phone"
+  }
+  ```
 
-#### DELETE /notifications/:id
-**Response:**
-```json
-{
-  "message": "Notification Deleted"
-}
-```
+- `POST /user/verify-otp` → Xác thực OTP  
+  **Request:**  
+  ```json
+  {
+    "identifier": "user@example.com",
+    "otp": "123456"
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "token": "jwt-token",
+    "role": "user"
+  }
+  ```
 
----
-### 6. Realtime Communication
-#### WebSocket URL: /realtime
-Payload:
-```json
-{
-  "temperature": 30,
-  "humidity": 80,
-  "water_level": 50
-}
-```
+## 2. Quản lý Chuồng (Cages)
 
----
-### 7. User Settings
-#### GET /users/:id/settings
-**Response:**
-```json
-{
-  "notification": true,
-  "language": "en"
-}
-```
+### **User**
+- `GET /api/cages` → Xem danh sách chuồng  
+  **Response:**  
+  ```json
+  [
+    {
+      "id": 1,
+      "name": "Chuồng A"
+    },
+    {
+      "id": 2,
+      "name": "Chuồng B"
+    }
+  ]
+  ```
 
-#### PUT /users/:id/settings
-**Request:**
-```json
-{
-  "notification": false,
-  "language": "vi"
-}
-```
-**Response:**
-```json
-{
-  "message": "Settings Updated"
-}
-```
+- `GET /api/cages/:id` → Xem chi tiết chuồng, bao gồm cảm biến và thiết bị  
+  **Response:**  
+  ```json
+  {
+    "id": 1,
+    "name": "Chuồng A",
+    "sensors": [
+      {
+        "id": 1,
+        "type": "temperature",
+        "value": 28.5,
+        "unit": "°C"
+      },
+      {
+        "id": 2,
+        "type": "humidity",
+        "value": 70,
+        "unit": "%"
+      }
+    ],
+    "devices": [
+      {
+        "id": 1,
+        "name": "Quạt",
+        "status": "on"
+      },
+      {
+        "id": 2,
+        "name": "Đèn LED",
+        "status": "off"
+      }
+    ]
+  }
+  ```
 
----
+- `POST /api/cages` → Tạo chuồng mới  
+  **Request:**  
+  ```json
+  {
+    "name": "Chuồng B"
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "id": 2,
+    "name": "Chuồng B"
+  }
+  ```
+
+## 3. Quản lý Cảm biến (Sensors)
+
+### **User**
+- `MQTT topic` : username/feeds/sensor# → Lấy dữ liệu từ cảm biến trực tiếp qua MQTT và chỉ lưu lại vào database những sự kiện vi phạm Automation Rule  
+  **Response:**  
+  ```json
+  {
+    "sensor_id": 1,
+    "type": "temperature",
+    "value": 28.5,
+    "unit": "°C",
+    "timestamp": "2024-03-09T12:00:00Z"
+  }
+  ```
+
+## 4. Quản lý Thiết bị (Devices)
+
+### **User**
+- `PUT /api/devices/:id` → Cập nhật trạng thái thiết bị (bật/tắt/auto)  
+  **Request:**  
+  ```json
+  {
+    "status": "on"
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "id": 1,
+    "name": "Quạt",
+    "status": "on"
+  }
+  ```
+
+## 5. Quy tắc Tự động (Automation Rules)
+
+### **User**
+- `POST /api/automation` → Tạo quy tắc tự động mới  
+  **Request:**  
+  ```json
+  {
+    "sensor_id": 1,
+    "device_id": 2,
+    "condition": ">",
+    "threshold": 30,
+    "action": "turn_on"
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "id": 1,
+    "sensor_id": 1,
+    "device_id": 2,
+    "condition": ">",
+    "threshold": 30,
+    "action": "turn_on"
+  }
+  ```
+## 6. Thông báo (Notifications)
+
+### **User**
+- `POST /api/notifications/register` → Đăng ký token FCM của thiết bị  
+  **Request:**  
+  ```json
+  {
+    "device_id": "user-device-123",
+    "fcm_token": "fcm-token-string"
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "message": "Device registered successfully"
+  }
+  ```
+
+- `POST /api/notifications/send` → Gửi thông báo đến thiết bị qua FCM  
+  **Request:**  
+  ```json
+  {
+    "device_id": "user-device-123",
+    "title": "Cảnh báo nhiệt độ",
+    "message": "Nhiệt độ vượt quá 30°C"
+  }
+  ```
+  **Response:**  
+  ```json
+  {
+    "message": "Notification sent successfully"
+  }
+  ```

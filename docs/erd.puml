@@ -1,71 +1,69 @@
-@startuml erd
-
-entity User {
-  * id : UUID
+@startuml ERD
+entity "Users" as U {
+  + id : UUID [PK]
   --
   name : string
-  email : string
-  username : string
+  email : string [UNIQUE]
   password : string
-  startDate : datetime
-  notification : boolean
-  language : string
+  role : enum(admin, user)
+  created_at : timestamp
+  updated_at : timestamp
 }
 
-entity Cage {
-  * id : UUID
+entity "Cages" as C {
+  + id : UUID [PK]
   --
   name : string
-  temperature : float
-  humidity : float
-  water_level : float
+  user_id : UUID [FK -> Users.id]
+  created_at : timestamp
+  updated_at : timestamp
 }
 
-entity Device {
-  * id : UUID
+entity "Sensors" as S {
+  + id : UUID [PK]
   --
   name : string
-  status : enum(ON, OFF)
-  mode : enum(Auto, Manual)
-  type : enum(Sensor, Actuator)
+  type : enum(temperature, humidity, light, distance, weight)
+  value : float
+  unit : string
+  cage_id : UUID [FK -> Cages.id]
+  created_at : timestamp
 }
 
-entity Log {
-  * id : UUID
+entity "Devices" as D {
+  + id : UUID [PK]
   --
-  timestamp : datetime
-  status : enum(ON, OFF)
+  name : string
+  type : enum(display, lock, light, pump, fan)
+  status : enum(on, off, auto)
+  cage_id : UUID [FK -> Cages.id]
+  created_at : timestamp
+  updated_at : timestamp
 }
 
-entity AutomationRule {
-  * id : UUID
+entity "AutomationRules" as AR {
+  + id : UUID [PK]
   --
-  condition : string
-  action : string
+  sensor_id : UUID [FK -> Sensors.id]
+  device_id : UUID [FK -> Devices.id]
+  condition : enum(>, <, =, >=, <=)
+  threshold : float
+  action : enum(turn_on, turn_off)
+  created_at : timestamp
 }
 
-entity Notification {
-  * id : UUID
+entity "Notifications" as N {
+  + id : UUID [PK]
   --
-  title : string
-  body : string
-  read : boolean
+  message : string
+  user_id : UUID [FK -> Users.id]
+  created_at : timestamp
 }
 
-entity RealtimeData {
-  * id : UUID
-  --
-  temperature : float
-  humidity : float
-  water_level : float
-  timestamp : datetime
-}
-
-User ||--|{ Cage : owns
-Cage ||--|{ Device : contains
-Device ||--|{ Log : has
-Device ||--|{ AutomationRule : triggers
-User ||--|{ Notification : receives
-Cage ||--|{ RealtimeData : monitors
-
+U ||--o{ C : "owns"
+C ||--o{ S : "has"
+C ||--o{ D : "has"
+S ||--o{ AR : "triggers"
+D ||--o{ AR : "controlled by"
+U ||--o{ N : "receives"
 @enduml
