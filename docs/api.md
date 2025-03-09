@@ -1,99 +1,27 @@
 # REST API Design
 
 ## 1. Xác thực & Người dùng
+`POST : admin/login`
+`POST : admin/logout`
 
-### **Admin**
-- `POST /admin/login` → Đăng nhập admin  
-  **Request:**  
-  ```json
-  {
-    "email": "admin@example.com",
-    "password": "password123"
-  }
-  ```
-  **Response:**  
-  ```json
-  {
-    "token": "jwt-token",
-    "role": "admin"
-  }
-  ```
+` Get` : admin/
+` Get` , `Delete`, : admin/users
+` Get` , `Delete`, : admin/users/:user_id
+`Get` : admin/users/cages & admin/user/cages/:cage_id 
 
-- `GET /admin/users` → Xem danh sách người dùng  
-  **Response:**  
-  ```json
-  [
-    {
-      "id": 1,
-      "name": "User A",
-      "email": "usera@example.com",
-      "role": "user"
-    }
-  ]
-  ```
-
-- `POST /admin/users` → Tạo người dùng mới  
-  **Request:**  
-  ```json
-  {
-    "name": "User B",
-    "email": "userb@example.com",
-    "role": "user"
-  }
-  ```
-  **Response:**  
-  ```json
-  {
-    "id": 2,
-    "name": "User B",
-    "email": "userb@example.com",
-    "role": "user"
-  }
-  ```
-
-- `DELETE /admin/users/:id` → Xóa người dùng  
-  **Response:**  
-  ```json
-  {
-    "message": "User deleted successfully"
-  }
-  ```
-
-### **User**
-- `POST /user/login` → Đăng nhập bằng số điện thoại hoặc email  
-  **Request:**  
-  ```json
-  {
-    "identifier": "user@example.com" 
-  }
-  ```
-  **Response:**  
-  ```json
-  {
-    "message": "OTP sent to email or phone"
-  }
-  ```
-
-- `POST /user/verify-otp` → Xác thực OTP  
-  **Request:**  
-  ```json
-  {
-    "identifier": "user@example.com",
-    "otp": "123456"
-  }
-  ```
-  **Response:**  
-  ```json
-  {
-    "token": "jwt-token",
-    "role": "user"
-  }
-  ```
+`Post : api/login`
+`Post : api/logout`
+`Post : api/register`
+`Post : api/changePW` -> token
+`Post : api/forgetPW` -> OTP email
 
 ## 2. Quản lý Chuồng (Cages)
+- Inactive / Active  -> Giữ nguyên trạng thái trước lúc tắt của device & sensor
 
 ### **User**
-- `GET /api/cages` → Xem danh sách chuồng  
+- `GET /api/cages` → Xem danh sách chuồng 
+- `Bearer Token`
+
   **Response:**  
   ```json
   [
@@ -108,7 +36,7 @@
   ]
   ```
 
-- `GET /api/cages/:id` → Xem chi tiết chuồng, bao gồm cảm biến và thiết bị  
+- `GET /api/cages/:cage_id` → Xem chi tiết chuồng, bao gồm cảm biến và thiết bị  
   **Response:**  
   ```json
   {
@@ -142,7 +70,7 @@
     ]
   }
   ```
-
+## Admin
 - `POST /api/cages` → Tạo chuồng mới  
   **Request:**  
   ```json
@@ -176,11 +104,11 @@
 ## 4. Quản lý Thiết bị (Devices)
 
 ### **User**
-- `PUT /api/devices/:id` → Cập nhật trạng thái thiết bị (bật/tắt/auto)  
+- `PUT /api/devices/:device_id` → Cập nhật trạng thái thiết bị (bật/tắt/auto)  
   **Request:**  
   ```json
   {
-    "status": "on"
+    "status": "on" // off , auto
   }
   ```
   **Response:**  
@@ -203,21 +131,27 @@
     "device_id": 2,
     "condition": ">",
     "threshold": 30,
+    "unit" : "C",
     "action": "turn_on"
   }
   ```
   **Response:**  
   ```json
   {
-    "id": 1,
+    "automation_id" : "xxxx-000012012-123123", //hash
     "sensor_id": 1,
     "device_id": 2,
     "condition": ">",
     "threshold": 30,
+    "unit" : "C",
     "action": "turn_on"
   }
   ```
+- `Get api/automation/automation_id` -> Display data onto dashboard
+
 ## 6. Thông báo (Notifications)
+- Alert : 
+  - Inactive/active - cage - device - sensor
 
 ### **User**
 - `POST /api/notifications/register` → Đăng ký token FCM của thiết bị  
@@ -235,18 +169,77 @@
   }
   ```
 
-- `POST /api/notifications/send` → Gửi thông báo đến thiết bị qua FCM  
+- `POST /api/notifications/send` → Gửi thông báo đến thiết bị qua FCM 
+
+  - Control sao cho noti gửi liên tục sau ${time} 
+  - Quá nhiệt -> Thông báo sau ~ 15 phút
+  - Nếu hết water/food -> Luôn mở van -> Thông báo sau ~ 2 tiếng
+
   **Request:**  
-  ```json
+```json
+[ 
   {
     "device_id": "user-device-123",
-    "title": "Cảnh báo nhiệt độ",
-    "message": "Nhiệt độ vượt quá 30°C"
+    "title": "Hết đồ ăn",
+    "message": "Thùng đựng hết đồ ăn",
+    "timestamp" : "9/3/2025 11PM"
+  },
+  {
+    "device_id": "user-device-456",
+    "title": "Quá nhiệt",
+    "message": "Nhiệt độ vượt quá 35 độ C",
+    "timestamp" : "9/3/2025 11PM"
   }
-  ```
+  ]
+```
   **Response:**  
   ```json
   {
     "message": "Notification sent successfully"
   }
   ```
+
+### 7. Thống kê
+ - `Get api/:cage_id/stat/{type=food?water}?startDate={}&endDate{}` 
+ #### res 
+ ```json
+ {
+   "food_refill_SL" : int,
+   "water_refill_SL" : int,
+ }
+ ```
+
+while measureing -> hamster consume water / food 
+-> show cho thầy
+
+
+
+# Stat Method
+refill_sum = 50 mil * refill_time -> dashboard display
+refill_cal_food() , refill_cal_water()
+
+  RefillDB (day) 
+  - cage_id 
+  - food_refill_SL : int -> 0
+  - water_refill_SL : int -> 0
+  - timestamp : 23/2/2025 
+
+
+  # Note : 
+- Admin đăng kí tk user
+- Forget password -> OTP GMail
+- Login -> Change password 
+
+
+
+- Admin 
+  - User
+    - Cage
+      - Device & Sensor
+
+- cage 1
+   - energy -> tổng tgian hoạt động của từng device *  mức tiêu thụ điện
+   - water stat
+   - food stat
+
+- cage 2
