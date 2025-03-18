@@ -1,4 +1,4 @@
-# .env file
+# .env 
 
 ```bash
 # Go
@@ -13,3 +13,7 @@ DB_NAME=hamster
 
 # Adafruit config
 ```
+# Cách chạy server 
+- Thay vì dùng `go run main.go`
+- Dùng lệnh `air` để hot Reload
+- Dùng `docker compose`
