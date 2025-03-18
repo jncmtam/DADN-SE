@@ -1,0 +1,41 @@
+version: '3.8'  # Không bắt buộc nhưng giúp rõ ràng
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: hamster
+      POSTGRES_PASSWORD: hamster
+      POSTGRES_DB: hamster
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "hamster"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: hamster
+      DB_PASSWORD: hamster
+      DB_NAME: hamster
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - .:/app  # Chỉ dùng khi dev, bỏ trong production
+
+volumes:
+  postgres_data:
+    driver: local

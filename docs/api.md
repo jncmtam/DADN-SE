@@ -1,19 +1,19 @@
 # REST API Design
 
 ## 1. Xác thực & Người dùng
-`POST : admin/login`
-`POST : admin/logout`
+- `POST : admin/login`
+- `POST : admin/logout`
 
-` Get` : admin/
-` Get` , `Delete`, : admin/users
-` Get` , `Delete`, : admin/users/:user_id
-`Get` : admin/users/cages & admin/user/cages/:cage_id 
+- ` Get : admin/`
+- ` Get, Delete : admin/users`
+- ` Get, Delete : admin/users/:user_id`
+- `Get : admin/users/cages & admin/user/cages/:cage_id`
 
-`Post : api/login`
-`Post : api/logout`
-`Post : api/register`
-`Post : api/changePW` -> token
-`Post : api/forgetPW` -> OTP email
+- `Post : api/login`
+- `Post : api/logout`
+- `Post : api/register`
+- `Post : api/changePW` -> token
+- `Post : api/forgetPW` -> OTP email
 
 ## 2. Quản lý Chuồng (Cages)
 - Inactive / Active  -> Giữ nguyên trạng thái trước lúc tắt của device & sensor
