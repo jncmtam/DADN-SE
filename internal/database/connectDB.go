@@ -16,7 +16,7 @@ import (
 func ConnectDB() (*sql.DB, error) {
 	host := os.Getenv("DB_HOST")
 	if host == "" {
-		host = "localhost" // Dùng tên service 'db' trong Docker Compose
+		host = "db" // Dùng tên service 'db' trong Docker Compose
 		log.Println("DB_HOST not set, defaulting to 'db'")
 	}
 	port := os.Getenv("DB_PORT")
@@ -32,12 +32,12 @@ func ConnectDB() (*sql.DB, error) {
 	password := os.Getenv("DB_PASSWORD")
 	if password == "" {
 		password = "password"
-		log.Println("DB_PASSWORD not set, defaulting to password")
+		log.Println("DB_PASSWORD not set, defaulting to hamster")
 	}
 	dbname := os.Getenv("DB_NAME")
 	if dbname == "" {
-		dbname = "mydb"
-		log.Println("DB_NAME not set, defaulting to mydb")
+		dbname = "hamster"
+		log.Println("DB_NAME not set, defaulting to hamster")
 	}
 
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",

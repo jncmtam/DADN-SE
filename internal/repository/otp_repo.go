@@ -1,50 +1,63 @@
-// internal/repository/otp.go
+// internal/repository/otp_repo.go
 package repository
 
 import (
+	"context"
 	"database/sql"
-	"github.com/google/uuid"
-	"hamstercare/internal/model"
 	"time"
+	"hamstercare/internal/database/queries"
+	"hamstercare/internal/model"
 )
 
 type OTPRepository struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 func NewOTPRepository(db *sql.DB) *OTPRepository {
-	return &OTPRepository{DB: db}
+	return &OTPRepository{db: db}
 }
 
-// NewOTPRequest tạo một bản ghi OTP mới với các giá trị mặc định
-func (r *OTPRepository) NewOTPRequest(userID, otpCode string, expiresIn time.Duration) *model.OTPRequest {
-	return &model.OTPRequest{
-		ID:        uuid.New().String(),       // Tạo UUID mới
-		UserID:    userID,                    // ID của user
-		OTPCode:   otpCode,                   // Mã OTP (6 chữ số)
-		ExpiresAt: time.Now().Add(expiresIn), // Thời gian hết hạn
-		IsUsed:    false,                     // Mặc định chưa dùng
-		CreatedAt: time.Now(),                // Thời gian tạo
-	}
-}
-
-// CreateOTP lưu bản ghi OTP vào database
-func (r *OTPRepository) CreateOTP(otp *model.OTPRequest) error {
-	query := `INSERT INTO otp_request (id, user_id, otp_code, expires_at, is_used, created_at) 
-             VALUES ($1, $2, $3, $4, $5, $6)`
-	_, err := r.DB.Exec(query, otp.ID, otp.UserID, otp.OTPCode, otp.ExpiresAt, otp.IsUsed, otp.CreatedAt)
-	return err
-}
-
-// GetValidOTP lấy OTP hợp lệ (chưa dùng và chưa hết hạn)
-func (r *OTPRepository) GetValidOTP(userID, otpCode string) (*model.OTPRequest, error) {
-	var otp model.OTPRequest
-	query := `SELECT id, user_id, otp_code, expires_at, is_used, created_at 
-             FROM otp_request 
-             WHERE user_id = $1 AND otp_code = $2 AND is_used = FALSE AND expires_at > NOW()`
-	err := r.DB.QueryRow(query, userID, otpCode).Scan(&otp.ID, &otp.UserID, &otp.OTPCode, &otp.ExpiresAt, &otp.IsUsed, &otp.CreatedAt)
+func (r *OTPRepository) CreateOTPRequest(ctx context.Context, userID, otpCode string, expiresAt time.Time) (*model.OTPRequest, error) {
+	otp := &model.OTPRequest{}
+	query, err := queries.GetQuery("create_otp_request")
 	if err != nil {
 		return nil, err
 	}
-	return &otp, nil
+	err = r.db.QueryRowContext(ctx, query, userID, otpCode, expiresAt).Scan(
+		&otp.ID, &otp.UserID, &otp.OTPCode, &otp.ExpiresAt, &otp.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return otp, nil
+}
+
+func (r *OTPRepository) VerifyOTP(ctx context.Context, userID, otpCode string) (*model.OTPRequest, error) {
+	otp := &model.OTPRequest{}
+	query, err := queries.GetQuery("verify_otp")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, userID, otpCode).Scan(
+		&otp.ID, &otp.UserID, &otp.OTPCode, &otp.ExpiresAt, &otp.IsUsed,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return otp, nil
+}
+
+func (r *OTPRepository) MarkOTPAsUsed(ctx context.Context, otpID string) (*model.OTPRequest, error) {
+	otp := &model.OTPRequest{}
+	query, err := queries.GetQuery("mark_otp_as_used")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, otpID).Scan(
+		&otp.ID, &otp.UserID, &otp.OTPCode, &otp.IsUsed,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return otp, nil
 }

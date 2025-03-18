@@ -2,9 +2,14 @@
 package service
 
 import (
+	"context"
+	"crypto/rand"
+	"errors"
+	"fmt"
 	"time"
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
+
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -18,51 +23,79 @@ func NewAuthService(userRepo *repository.UserRepository, otpRepo *repository.OTP
 	return &AuthService{UserRepo: userRepo, OTPRepo: otpRepo}
 }
 
-// Login xử lý đăng nhập và trả về JWT
-func (s *AuthService) Login(email, password string) (string, error) {
-	// Lấy user từ database
-	user, err := s.UserRepo.GetUserByEmail(email)
+func (s *AuthService) Login(ctx context.Context, email, password string) (string, error) {
+	user, err := s.UserRepo.FindUserByEmail(ctx, email)
 	if err != nil {
-		return "", err // Email không tồn tại
+		return "", fmt.Errorf("email not found: %w", err)
 	}
 
-	// Kiểm tra mật khẩu
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
-		return "", err // Mật khẩu không khớp
+		return "", errors.New("invalid password")
 	}
 
-	// Tạo JWT
 	token, err := generateJWT(user.ID, user.Role)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to generate JWT: %w", err)
 	}
 
 	return token, nil
 }
 
-func (s *AuthService) CreateOTP(userID string) (*model.OTPRequest, error) {
+func (s *AuthService) CreateOTP(ctx context.Context, userID string) (*model.OTPRequest, error) {
 	otpCode := generateOTP(6)
-	otp := s.OTPRepo.NewOTPRequest(userID, otpCode, 5*time.Minute)
-	err := s.OTPRepo.CreateOTP(otp)
+	expiresAt := time.Now().Add(5 * time.Minute)
+
+	otp, err := s.OTPRepo.CreateOTPRequest(ctx, userID, otpCode, expiresAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create OTP: %w", err)
 	}
+
 	return otp, nil
 }
 
-// generateJWT tạo token JWT (di chuyển từ api/router.go sang đây)
+func (s *AuthService) VerifyOTP(ctx context.Context, userID, otpCode string) error {
+	otp, err := s.OTPRepo.VerifyOTP(ctx, userID, otpCode)
+	if err != nil {
+		return fmt.Errorf("invalid or expired OTP: %w", err)
+	}
+
+	_, err = s.OTPRepo.MarkOTPAsUsed(ctx, otp.ID)
+	if err != nil {
+		return fmt.Errorf("failed to mark OTP as used: %w", err)
+	}
+
+	_, err = s.UserRepo.VerifyEmail(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to verify email: %w", err)
+	}
+
+	return nil
+}
+
 func generateJWT(userID, role string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(), // Hết hạn sau 24h
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte("your-secret-key"))
+	secretKey := []byte("your-secret-key") // Nên lấy từ biến môi trường
+	return token.SignedString(secretKey)
 }
 
 func generateOTP(length int) string {
-	// Placeholder, cần dùng "math/rand" để tạo OTP ngẫu nhiên
-	return "123456"
+	const digits = "0123456789"
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		for i := range b {
+			b[i] = digits[i%10]
+		}
+	} else {
+		for i := range b {
+			b[i] = digits[int(b[i])%10]
+		}
+	}
+	return string(b)
 }

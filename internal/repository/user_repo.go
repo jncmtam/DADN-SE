@@ -1,44 +1,100 @@
-// internal/repository/user.go
+// internal/repository/user_repo.go
 package repository
 
 import (
+	"context"
 	"database/sql"
+	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
 
 type UserRepository struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{DB: db}
+	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) GetUserByEmail(email string) (*model.User, error) {
-	var user model.User
-	query := `SELECT id, username, email, password_hash, role, created_at, updated_at 
-             FROM users WHERE email = $1`
-	err := r.DB.QueryRow(query, email).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+func (r *UserRepository) CreateUser(ctx context.Context, username, email, passwordHash, role string) (*model.User, error) {
+	user := &model.User{}
+	query, err := queries.GetQuery("create_user")
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
-}
-
-func (r *UserRepository) CreateUser(user *model.User) error {
-	query := `INSERT INTO users (username, email, password_hash, role) 
-             VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at`
-	err := r.DB.QueryRow(query, user.Username, user.Email, user.PasswordHash, user.Role).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
-	return err
-}
-
-func (r *UserRepository) GetUserByID(id string) (*model.User, error) {
-	var user model.User
-	query := `SELECT id, username, email, role, created_at, updated_at 
-             FROM users WHERE id = $1`
-	err := r.DB.QueryRow(query, id).Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.CreatedAt, &user.UpdatedAt)
+	err = r.db.QueryRowContext(ctx, query, username, email, passwordHash, role).Scan(
+		&user.ID, &user.Username, &user.Email, &user.Role, &user.CreatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
+	return user, nil
+}
+
+func (r *UserRepository) FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	user := &model.User{}
+	query, err := queries.GetQuery("find_user_by_email")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role,
+		&user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, sql.ErrNoRows
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*model.User, error) {
+	user := &model.User{}
+	query, err := queries.GetQuery("get_user_by_id")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, id).Scan(
+		&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.Role,
+		&user.IsEmailVerified, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, sql.ErrNoRows
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID, newPasswordHash string) (*model.User, error) {
+	user := &model.User{}
+	query, err := queries.GetQuery("update_password")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, newPasswordHash, userID).Scan(
+		&user.ID, &user.Username, &user.Email, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) (*model.User, error) {
+	user := &model.User{}
+	query, err := queries.GetQuery("verify_email")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, userID).Scan(
+		&user.ID, &user.Username, &user.Email, &user.IsEmailVerified, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }

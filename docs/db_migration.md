@@ -9,5 +9,4 @@
 | 5️⃣  | `migrate -path internal/database/migrations -database "postgres://hamster:hamster@localhost:5432/hamster?sslmode=disable" version` | Kiểm tra version hiện tại                          |
 | 6️⃣  | `migrate -path internal/database/migrations -database "postgres://hamster:hamster@localhost:5432/hamster?sslmode=disable" goto 3`  | Chuyển database đến version 3                      |
 | 7️⃣  | `migrate -path internal/database/migrations -database "postgres://hamster:hamster@localhost:5432/hamster?sslmode=disable" force 1` | Fix lỗi "Dirty database version" (ép về version 1) |
-| 8️⃣  | `migrate -path internal/database/migrations -database "postgres://hamster:hamster@localhost:5432/hamster?sslmode=disable" drop`    | ** Xóa toàn bộ database**                        |
-
+| 8️⃣  | `migrate -path internal/database/migrations -database "postgres://hamster:hamster@localhost:5432/hamster?sslmode=disable" drop`    | ** Xóa toàn bộ database**                          |

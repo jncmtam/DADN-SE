@@ -42,3 +42,5 @@ CMD ["/app/main"]
 # docker buildx build --platform linux/amd64,linux/arm64 -t hamster:latest .
 # docker buildx build --platform linux/amd64 -t hamster:latest .
 # docker buildx build --platform linux/arm64 -t hamster:latest .
+
+# docker run -d --name hamsbe -p 8080:8080 hamster

@@ -3,6 +3,7 @@ package main
 import (
 	"hamstercare/api"
 	"hamstercare/internal/database"
+	"hamstercare/internal/database/queries"
 	"log"
 	"os"
 	"time"
@@ -18,6 +19,11 @@ func main() {
 		log.Println("Can't find .env file, using default environment variables")
 	}
 
+	// Tải các truy vấn SQL
+    if err := queries.LoadQueries(); err != nil {
+        log.Fatal("Error loading queries:", err)
+    }
+
 	db, err := database.ConnectDB()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -26,28 +32,28 @@ func main() {
 
 	r := gin.Default()
 
-	// ⚡ Cấu hình CORS
+	// Cấu hình CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+	// Check xem server có đang chạy không
+	r.GET("/", func(c *gin.Context) {
+		port := "8080"
+		c.JSON(200, gin.H{
+			"message": "Server is running on port " + port,
+		})
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 		log.Println("PORT not set, defaulting to 8080")
 	}
-
-	// 🔥 Route mặc định thông báo server đang chạy
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Server is running on port " + port,
-		})
-	})
 
 	api.SetupRoutes(r, db)
 	log.Printf("Starting server on port %s...", port)

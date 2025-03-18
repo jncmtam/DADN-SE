@@ -47,5 +47,4 @@ require (
 	github.com/gin-contrib/cors v1.7.4
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/golang-migrate/migrate/v4 v4.18.2
-	github.com/google/uuid v1.6.0
 )
