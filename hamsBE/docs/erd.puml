@@ -1,0 +1,81 @@
+@startuml ERD
+entity "Users" as U {
+  + id : UUID [PK]
+  --
+  name : string
+  email : string [UNIQUE]
+  password : string
+  role : enum(admin, user)
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "Cages" as C {
+  + id : UUID [PK]
+  --
+name : string
+  user_id : UUID [FK -> Users.id]
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "Sensors" as S {
+  + id : UUID [PK]
+  --
+  name : string
+  type : enum(temperature, humidity, light, distance, weight)
+  value : float
+  unit : string
+  cage_id : UUID [FK -> Cages.id]
+  created_at : timestamp
+}
+
+entity "Statistic" as ST{
+  + id : UUID [PK]
+  --
+  cage_id : UUID [FK -> Cages.id]
+  water_refill_SL : int
+  food_refill_SL : int
+  create_at : timestamp
+}
+
+entity "Devices" as D {
+  + id : UUID [PK]
+  --
+  name : string
+  type : enum(display, lock, light, pump, fan)
+  status : enum(on, off, auto)
+  last_status : enum(on, off, auto) <-- ** Before unactive cage
+  cage_id : UUID [FK -> Cages.id]
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "AutomationRules" as AR {
+  + id : UUID [PK]
+  --
+  sensor_id : UUID [FK -> Sensors.id]
+  device_id : UUID [FK -> Devices.id]
+  condition : enum(>, <, =, >=, <=)
+  threshold : float
+  unit : string (C,%,lux,mm,g)
+  action : enum(turn_on, turn_off)
+  created_at : timestamp
+}
+
+entity "Notifications" as N {
+  + id : UUID [PK]
+  --
+  message : string
+  user_id : UUID [FK -> Users.id]
+  created_at : timestamp
+}
+
+U ||--o{ C : "owns"
+C ||--o{ S : "has"
+C ||--o{ D : "has"
+S ||--o{ AR : "triggers"
+D ||--o{ AR : "controlled by"
+U ||--o{ N : "receives"
+C ||--o{ ST : "shows"
+@enduml
