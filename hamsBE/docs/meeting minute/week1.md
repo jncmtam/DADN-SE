@@ -43,3 +43,4 @@
 | User requirements                | Nguyễn Quang Tác                       | 15/02/2025   |
 | Use-case Diagram                 | Mai Hải Sơn <br> Thịnh Trần Khánh Linh | 15/02/2025   |
 | Meeting minute, edit the report  | Chu Minh Tâm                           | 15/02/2025   |
+
