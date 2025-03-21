@@ -1,4 +1,3 @@
-// internal/repository/otp_repo.go
 package repository
 
 import (
@@ -60,4 +59,13 @@ func (r *OTPRepository) MarkOTPAsUsed(ctx context.Context, otpID string) (*model
 		return nil, err
 	}
 	return otp, nil
+}
+
+func (r *OTPRepository) DeleteActiveOTPs(ctx context.Context, userID string) error {
+	query, err := queries.GetQuery("delete_active_otps")
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, query, userID)
+	return err
 }

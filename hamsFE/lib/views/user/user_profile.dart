@@ -5,9 +5,9 @@ import '../../models/user.dart';
 import '../constants.dart';
 import '../utils.dart';
 
-class AdminProfile extends StatelessWidget {
+class UserProfile extends StatelessWidget {
   final User user;
-  const AdminProfile({super.key, required this.user});
+  const UserProfile({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -125,9 +125,9 @@ class AdminProfile extends StatelessWidget {
           title: Text(
             'Change Password',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: primaryText
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: primaryText
             ),
           ),
           content: Column(

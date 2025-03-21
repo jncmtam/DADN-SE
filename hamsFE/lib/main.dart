@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hamsFE/views/admin_app.dart';
-import 'package:hamsFE/views/user/login.dart';
+import 'package:hamsFE/views/login.dart';
 import 'package:hamsFE/views/user_app.dart';
 import 'controllers/session.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await SessionManager().loadToken();
+  WidgetsFlutterBinding.ensureInitialized(); // Required by FlutterSecureStorage
+  await SessionManager().loadToken(); // Load token from storage
 
   runApp(MyApp());
 }
@@ -44,12 +44,3 @@ class MyApp extends StatelessWidget {
     }
   }
 }
-
-// class UserApp extends StatelessWidget {
-//   const UserApp({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return _UserAppContent();
-//   }
-// }

@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:hamsFE/views/constants.dart';
 
 import '../../models/user.dart';
+import '../constants.dart';
 
-class AdminHome extends StatefulWidget {
+class UserHome extends StatefulWidget {
   final User user;
-  const AdminHome({super.key, required this.user});
+  const UserHome({super.key, required this.user});
 
   @override
-  State<StatefulWidget> createState() => _AdminHomeState();
+  State<StatefulWidget> createState() => _UserHomeState();
 }
 
-class _AdminHomeState extends State<AdminHome> {
+class _UserHomeState extends State<UserHome> {
   late final User user;
 
   @override

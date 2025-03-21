@@ -2,7 +2,7 @@ class User {
   final String id;
   final String name;
   final String email;
-  // final String avatarUrl;
+  final String avatarUrl;
   // final String gender;
   final DateTime? joinDate;
   final String role;
@@ -12,6 +12,7 @@ class User {
     required this.id,
     required this.name,
     required this.email,
+    required this.avatarUrl,
     required this.joinDate,
     required this.role,
     required this.emailVerified,
@@ -24,6 +25,8 @@ class User {
       id: json['id'] ?? 'N/A',
       name: json['username'] ?? 'N/A',
       email: json['email'] ?? 'N/A',
+      avatarUrl: json['avatarUrl'] ??
+          'https://drive.google.com/uc?export=view&id=1df6TULh5Q0RWm4c_P7BGIvfIh7jSivPr', // default avatar
       role: json['role'] ?? 'N/A',
       joinDate: DateTime.parse(json['created_at']),
       emailVerified: json['is_email_verified'] ?? false,
