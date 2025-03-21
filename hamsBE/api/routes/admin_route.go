@@ -3,10 +3,13 @@ package routes
 
 import (
 	"database/sql"
-	"net/http"
+	"errors"
 	"hamstercare/internal/middleware"
 	"hamstercare/internal/repository"
+	"hamstercare/internal/service"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -15,7 +18,8 @@ import (
 
 func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 	userRepo := repository.NewUserRepository(db)
-
+	otpRepo := repository.NewOTPRepository(db)
+	authService := service.NewAuthService(userRepo, otpRepo)
 	admin := r.Group("/admin")
 	admin.Use(middleware.JWTMiddleware(), authMiddleware("admin"))
 	{
@@ -30,6 +34,19 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 			c.JSON(http.StatusOK, user)
 		})
+		admin.GET("/users", middleware.JWTMiddleware(), func(c *gin.Context) {
+			users, err := authService.GetAllUsers(c.Request.Context())
+			if err != nil {
+				log.Printf("Failed to fetch users: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users: " + err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Users retrieved successfully",
+				"users":   users,
+			})
+		})
 
 		// Đăng ký người dùng mới (chỉ admin)
 		admin.POST("/auth/register", func(c *gin.Context) {
@@ -42,13 +59,6 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			if err := c.ShouldBindJSON(&req); err != nil {
 				log.Printf("Invalid request body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-				return
-			}
-
-			// Chỉ cho phép tạo role "user"
-			if req.Role != "user" {
-				log.Printf("Invalid role: %s, only 'user' is allowed", req.Role)
-				c.JSON(http.StatusForbidden, gin.H{"error": "Only 'user' role is allowed"})
 				return
 			}
 
@@ -81,6 +91,37 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 			c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user_id": user.ID})
 		})
+		admin.DELETE("/users/:user_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+            // Kiểm tra quyền admin
+            role, exists := c.Get("role")
+            if !exists || role != "admin" {
+                c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete users"})
+                return
+            }
+
+            userID := c.Param("user_id")
+            if userID == "" {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+                return
+            }
+
+            err := authService.DeleteUser(c.Request.Context(), userID)
+            if err != nil {
+                log.Printf("Failed to delete user %s: %v", userID, err)
+                if errors.Is(err, errors.New("user not found")) {
+                    c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+                } else {
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user: " + err.Error()})
+                }
+                return
+            }
+
+            c.JSON(http.StatusOK, gin.H{
+                "message":   "User deleted successfully",
+                "user_id":   userID,
+                "timestamp": time.Now().UTC(),
+            })
+        })
 	}
 }
 

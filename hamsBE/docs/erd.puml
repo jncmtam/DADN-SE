@@ -13,8 +13,9 @@ entity "Users" as U {
 entity "Cages" as C {
   + id : UUID [PK]
   --
-name : string
+  name : string
   user_id : UUID [FK -> Users.id]
+  status : enum(on, off)
   created_at : timestamp
   updated_at : timestamp
 }

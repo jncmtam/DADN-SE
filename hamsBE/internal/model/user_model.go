@@ -6,10 +6,11 @@ type User struct {
 	ID              string    `json:"id"`
 	Username        string    `json:"username"`
 	Email           string    `json:"email"`
+	AvatarURL       string 	  `json:"avatar_url"`
 	PasswordHash    string    `json:""`
 	OTPSecret       string    `json:""`
 	IsEmailVerified bool      `json:"is_email_verified"`
 	Role            string    `json:"role"`
-	CreatedAt        time.Time `json:"created_at"`
+	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
