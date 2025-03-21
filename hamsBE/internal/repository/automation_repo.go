@@ -66,3 +66,13 @@ func (r *AutomationRepository) GetAutomationRulesByDeviceID(ctx context.Context,
 	}
 	return rules, nil
 }
+
+func (r *AutomationRepository) IsOwnedByUser(ctx context.Context, userID, ruleID string) (bool, error) {
+	query, err := queries.GetQuery("IsOwnedByUser_Automation")
+	if err != nil {
+		return false, err
+	}
+	var count int
+    err = r.db.QueryRowContext(ctx, query, ruleID, userID).Scan(&count)
+    return count > 0, err
+}

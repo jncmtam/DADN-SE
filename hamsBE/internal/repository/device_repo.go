@@ -88,3 +88,13 @@ func (r *DeviceRepository) DeleteDeviceByID(ctx context.Context, deviceID string
 	_, err = r.db.ExecContext(ctx, query, deviceID)
 	return err
 }
+
+func (r *DeviceRepository) IsOwnedByUser(ctx context.Context, userID, deviceID string) (bool, error) {
+	query, err := queries.GetQuery("IsOwnedByUser_Device")
+	if err != nil {
+		return false, err
+	}
+	var count int
+    err = r.db.QueryRowContext(ctx, query, deviceID, userID).Scan(&count)
+    return count > 0, err
+}

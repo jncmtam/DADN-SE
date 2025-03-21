@@ -92,9 +92,9 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user_id": user.ID})
 		})
 
-		// Tạo cage mới (only admin)
-		admin.POST("/users/:userID/cages", func(c *gin.Context) {
-			userID := c.Param("userID")
+		// Tạo một chuồng (cage) mới cho user.
+		admin.POST("/users/:id/cages", func(c *gin.Context) {
+			userID := c.Param("id")
 			if userID == "" {
 				log.Println("Missing userID in request")
 				c.JSON(http.StatusBadRequest, gin.H{"error": "userID is required"})
@@ -125,7 +125,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Thêm device mới (only admin)
+		// Thêm một thiết bị (device) mới vào chuồng.
 		admin.POST("/cages/:cageID/devices", func(c *gin.Context) {
 			cageID := c.Param("cageID")
 			if cageID == "" {
@@ -158,7 +158,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Tao sensor moi
+		// Thêm một cảm biến (sensor) mới vào chuồng 
 		admin.POST("/cages/:cageID/sensors", func(c *gin.Context) {
 			cageID := c.Param("cageID")
 			if cageID == "" {
@@ -191,8 +191,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Xoa 1 cage
-		admin.DELETE("/users/cages/:cageID", func(c *gin.Context) {
+		// Xóa một chuồng (cage)
+		admin.DELETE("cages/:cageID", func(c *gin.Context) {
 			cageID := c.Param("cageID")
 			if cageID == "" {
 				log.Println("Missing cageID in request")
@@ -212,8 +212,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Xoa 1 device
-		admin.DELETE("/cages/devices/:deviceID", func(c *gin.Context) {
+		// Xóa một thiết bị (device)
+		admin.DELETE("/devices/:deviceID", func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			if deviceID == "" {
 				log.Println("Missing deviceID in request")
@@ -233,8 +233,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Xoa 1 sensor
-		admin.DELETE("/cages/sensors/:sensorID", func(c *gin.Context) {
+		// Xóa một cảm biến (sensor)
+		admin.DELETE("/sensors/:sensorID", func(c *gin.Context) {
 			sensorID := c.Param("sensorID")
 			if sensorID == "" {
 				log.Println("Missing sensorID in request")
@@ -254,8 +254,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Xem chi tiết cua 1 cage
-		admin.GET("/users/cages/:cageID", func(c *gin.Context) {
+		// Xem chi tiết của một chuồng (cage).
+		admin.GET("/cages/:cageID", func(c *gin.Context) {
 			cageID := c.Param("cageID")
 			if cageID == "" {
 				log.Println("Missing cageID in request")
@@ -289,6 +289,25 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				"sensors": sensors,
 				"devices": devices,
 			})
+		})
+
+		// Lấy danh sách các chuồng (cages) của một user.
+		admin.GET("/users/:id/cages", func(c *gin.Context) {
+			userID := c.Param("id")
+			if userID == "" {
+				log.Println("Missing userID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "userID is required"})
+				return
+			}
+			
+			cages, err := cageService.GetCagesByUserID(c.Request.Context(), userID)
+			if err != nil {
+				log.Printf("Error fetching cages for user %s: %v", userID, err.Error())
+				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, cages)
 		})
 	}
 }

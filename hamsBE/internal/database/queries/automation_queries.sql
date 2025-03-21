@@ -10,3 +10,10 @@ DELETE FROM automation_rules WHERE id = $1;
 SELECT id, sensor_id, condition, threshold, unit, action
 FROM automation_rules
 WHERE device_id = $1;
+
+-- name: IsOwnedByUser_Automation
+SELECT COUNT(*) 
+FROM automation_rules 
+    JOIN devices ON automation_rules.device_id = devices.id 
+    JOIN cages ON devices.cage_id = cages.id 
+WHERE automation_rules.id = $1 AND cages.user_id = $2;

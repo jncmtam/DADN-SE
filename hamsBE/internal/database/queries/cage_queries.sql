@@ -20,3 +20,6 @@ DELETE FROM cages WHERE id = $1;
 
 -- name: get_cage_by_ID
 SELECT id, name, status FROM cages WHERE id = $1;
+
+-- name: IsOwnedByUser_Cage
+SELECT COUNT(*) FROM cages WHERE id = $1 AND user_id = $2;

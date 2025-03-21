@@ -15,3 +15,8 @@ WHERE id = $1;
 
 -- name: delete_device_by_id
 DELETE FROM devices WHERE id = $1;
+
+-- name: IsOwnedByUser_Device
+SELECT COUNT(*) 
+FROM devices JOIN cages ON devices.cage_id = cages.id 
+WHERE devices.id = $1 AND cages.user_id = $2;

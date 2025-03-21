@@ -85,4 +85,13 @@ func (r *CageRepository) GetACageByID(ctx context.Context, cageID string) (*mode
 	return cage, nil
 }
 
+func (r *CageRepository) IsOwnedByUser(ctx context.Context, userID, cageID string) (bool, error) {
+	query, err := queries.GetQuery("IsOwnedByUser_Cage")
+	if err != nil {
+		return false, err
+	}
+	var count int
+    err = r.db.QueryRowContext(ctx, query, cageID, userID).Scan(&count)
+    return count > 0, err
+}
 
