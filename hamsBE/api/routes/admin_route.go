@@ -3,10 +3,11 @@ package routes
 
 import (
 	"database/sql"
-	"net/http"
 	"hamstercare/internal/middleware"
 	"hamstercare/internal/repository"
+	"hamstercare/internal/service"
 	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
@@ -15,6 +16,15 @@ import (
 
 func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 	userRepo := repository.NewUserRepository(db)
+
+	cageRepo := repository.NewCageRepository(db)
+	cageService := service.NewCageService(cageRepo)
+
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo)
+
+	sensorRepo := repository.NewSensorRepository(db)
+	sensorService := service.NewSensorService(sensorRepo)
 
 	admin := r.Group("/admin")
 	admin.Use(middleware.JWTMiddleware(), authMiddleware("admin"))
@@ -80,6 +90,205 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 			c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user_id": user.ID})
+		})
+
+		// Tạo cage mới (only admin)
+		admin.POST("/users/:userID/cages", func(c *gin.Context) {
+			userID := c.Param("userID")
+			if userID == "" {
+				log.Println("Missing userID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "userID is required"})
+				return
+			}
+			
+			var req struct {
+				NameCage string `json:"name_cage" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("Invalid request body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			// Tạo cage mới cho user
+			cage, err := cageService.CreateCage(c.Request.Context(), req.NameCage, userID)
+			if err != nil {
+				log.Printf("Error creating cage for user %s: %v", userID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusCreated, gin.H{
+				"message": "Cage created successfully",
+				"id":      cage.ID,
+				"name":    cage.Name,
+			})
+		})
+
+		// Thêm device mới (only admin)
+		admin.POST("/cages/:cageID/devices", func(c *gin.Context) {
+			cageID := c.Param("cageID")
+			if cageID == "" {
+				log.Println("Missing cageID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
+				return
+			}
+
+			var req struct {
+				Name string `json:"name" binding:"required"`
+				Type string `json:"type" binding:"required,oneof=display lock light pump fan"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("Invalid request body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			device, err := deviceService.CreateDevice(c.Request.Context(), req.Name, req.Type, cageID)
+			if err != nil {
+				log.Printf("Error creating device for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create device"})
+				return
+			}
+
+			c.JSON(http.StatusCreated, gin.H{
+				"message": "Device created successfully",
+				"id":      device.ID,
+				"name":    device.Name,
+			})
+		})
+
+		// Tao sensor moi
+		admin.POST("/cages/:cageID/sensors", func(c *gin.Context) {
+			cageID := c.Param("cageID")
+			if cageID == "" {
+				log.Println("Missing cageID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
+				return
+			}
+
+			var req struct {
+				Name string `json:"name" binding:"required"`
+				Type string `json:"type" binding:"required,oneof=temperature humidity light distance weight"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("Invalid request body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, cageID)
+			if err != nil {
+				log.Printf("Error creating sensor for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create sensor"})
+				return
+			}
+
+			c.JSON(http.StatusCreated, gin.H{
+				"message": "Sensor created successfully",
+				"id":      sensor.ID,
+				"name":    sensor.Name,
+			})
+		})
+
+		// Xoa 1 cage
+		admin.DELETE("/users/cages/:cageID", func(c *gin.Context) {
+			cageID := c.Param("cageID")
+			if cageID == "" {
+				log.Println("Missing cageID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
+				return
+			}		
+
+			err := cageService.DeleteCage(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("Error deleting cage %s: %v", cageID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Cage deleted successfully",
+			})
+		})
+
+		// Xoa 1 device
+		admin.DELETE("/cages/devices/:deviceID", func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+			if deviceID == "" {
+				log.Println("Missing deviceID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "deviceID is required"})
+				return
+			}
+
+			err := deviceService.DeleteDevice(c.Request.Context(), deviceID)
+			if err != nil {
+				log.Printf("Error deleting device %s: %v", deviceID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not delete device"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Device deleted successfully",
+			})
+		})
+
+		// Xoa 1 sensor
+		admin.DELETE("/cages/sensors/:sensorID", func(c *gin.Context) {
+			sensorID := c.Param("sensorID")
+			if sensorID == "" {
+				log.Println("Missing sensorID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "sensorID is required"})
+				return
+			}
+
+			err := sensorService.DeleteSensor(c.Request.Context(), sensorID)
+			if err != nil {
+				log.Printf("Error deleting sensor %s: %v", sensorID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not delete sensor"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Sensor deleted successfully",
+			})
+		})
+
+		// Xem chi tiết cua 1 cage
+		admin.GET("/users/cages/:cageID", func(c *gin.Context) {
+			cageID := c.Param("cageID")
+			if cageID == "" {
+				log.Println("Missing cageID in request")
+				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
+				return
+			}
+
+			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("Error fetching cage %s: %v", cageID, err)
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("Error fetching sensors for cage %s: %v", cageID, err)
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("Error fetching devices for cage %s: %v", cageID, err)
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"id": cage.ID,
+				"name": cage.Name,
+				"sensors": sensors,
+				"devices": devices,
+			})
 		})
 	}
 }
