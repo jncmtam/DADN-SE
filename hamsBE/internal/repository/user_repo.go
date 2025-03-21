@@ -98,7 +98,7 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID, newPassword
         return nil, err
     }
     err = r.db.QueryRowContext(ctx, query, newPasswordHash, userID).Scan(
-        &user.ID, &user.Username, &user.Email, &user.AvatarURL, &user.UpdatedAt,
+        &user.ID, &user.Username, &user.Email, &user.UpdatedAt,
     )
     if err != nil {
         return nil, err
