@@ -1,8 +1,8 @@
-## 🛠 Sơ Đồ Chân (Pinout) YoloBit
+## Yolobit
 
-YoloBit sử dụng **ESP32** làm vi điều khiển chính. Dưới đây là sơ đồ chân quan trọng:
+YoloBit use **ESP32** being main MCU. It has 16 GPIO pins, 2 I2C pins, 2 UART pins, 1 SPI pins, 1 ADC pin, 1 DAC pin, and 1 PWM pin.:
 
-### 📌 Bảng GPIO của YoloBit
+### Pinout of YoloBit:
 
 | **Chân YoloBit** | **GPIO trên ESP32** | **Chức năng** |
 |------------------|--------------------|---------------|
@@ -30,17 +30,10 @@ YoloBit sử dụng **ESP32** làm vi điều khiển chính. Dưới đây là 
 | 3V3             | -                    | 3.3V |
 | 5V              | -                    | 5V |
 
-### 🔌 Lưu Ý Khi Sử Dụng GPIO Trên YoloBit
 
-- **P0 → P3 hỗ trợ ADC** (Analog Input).
-- **P4 → P10 hỗ trợ Digital I/O & PWM**.
-- **GPIO1 và GPIO3 dùng cho UART (Serial)**, tránh sử dụng khi kết nối USB.
-- **SCL (GPIO22) và SDA (GPIO21)** dùng cho giao tiếp I2C.
-- **Một số chân không nên kéo xuống GND khi khởi động** (như GPIO0, GPIO2).
-
-### 🖼️ Sơ Đồ Mạch Mở Rộng
+### Layout of Grove Shield
 <img src="images/Yolobit_mach_mo_rong.webp" width="400px">
 
-### 🖼️ Sơ Đồ Nối Dây
+### Wiring Diagram
 <img src="images/so_do_noi_day.png" width="400px">
 
