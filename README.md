@@ -6,22 +6,18 @@ YoloBit sử dụng **ESP32** làm vi điều khiển chính. Dưới đây là 
 
 | **Chân YoloBit** | **GPIO trên ESP32** | **Chức năng** |
 |------------------|--------------------|---------------|
-| P0              | GPIO26              | Digital, PWM, ADC |
-| P1              | GPIO32              | Digital, PWM, ADC |
-| P2              | GPIO33              | Digital, PWM, ADC |
-| P3              | GPIO25              | Digital, PWM, ADC |
-| P4              | GPIO17              | Digital, PWM |
-| P5              | GPIO16              | Digital, PWM |
-| P6              | GPIO4               | Digital, PWM |
-| P7              | GPIO0               | Digital, PWM |
-| P8              | GPIO2               | Digital, PWM |
-| P9              | GPIO15              | Digital, PWM |
-| P10             | GPIO13              | Digital, PWM |
-| P11             | GPIO12              | Digital, PWM |
-| P12             | GPIO14               | Digital, PWM |
-| P13             | GPIO27               | Digital, PWM, ADC |
-| P14             | GPIO35               | Digital, ADC (Chỉ đọc) |
-| P15             | GPIO39               | Digital, ADC (Chỉ đọc) |
+| P0              | GPIO32              | Digital, PWM, ADC |
+| P1              | GPIO33              | Digital, PWM, ADC |
+| P2              | GPIO27              | Digital, PWM, ADC |
+| P3              | GPIO2              | Digital, PWM, ADC |
+| P4              | GPIO15              | Digital, PWM |
+| P6              | GPIO12               | Digital, PWM |
+| P10             | GPIO26              | Digital, PWM |
+| P12             | GPIO13               | Digital, PWM |
+| P13             | GPIO18               | Digital, PWM, ADC |
+| P14             | GPIO19               | Digital, ADC (Chỉ đọc) |
+| P15             | GPIO23               | Digital, ADC (Chỉ đọc) |
+| P16             | GPIO5                | Digital, PWM |
 | SCL             | GPIO22               | I2C Clock |
 | SDA             | GPIO21               | I2C Data |
 | TX              | GPIO1                | UART TX |
