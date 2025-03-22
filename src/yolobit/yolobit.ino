@@ -1,26 +1,4 @@
-#include <Wire.h>
-#include <Arduino.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <DHT20.h>
-#include <LiquidCrystal_I2C.h>
-#include <Ultrasonic.h>
-#include <Adafruit_NeoPixel.h>
-#include <IRremote.hpp>
-
-#include "../../config.h"
-
-float temp = 0;
-float hum = 0;
-int distance = 0;
-int light = 0;
-int infrared = 0;
-bool led_enable = false;
-bool fan_enable = false;
-bool pump_enable = false;
-
+#include <yolobit.h>
 
 WiFiClient espClient;
 PubSubClient client(espClient);
