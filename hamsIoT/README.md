@@ -15,8 +15,8 @@ YoloBit use **ESP32** being main MCU. It has 16 GPIO pins, 2 I2C pins, 2 UART pi
 | P10             | GPIO26              | Digital, PWM |
 | P12             | GPIO13               | Digital, PWM |
 | P13             | GPIO18               | Digital, PWM, ADC |
-| P14             | GPIO19               | Digital, ADC (Chỉ đọc) |
-| P15             | GPIO23               | Digital, ADC (Chỉ đọc) |
+| P14             | GPIO19               | Digital, ADC (Only read) |
+| P15             | GPIO23               | Digital, ADC (Only read) |
 | P16             | GPIO5                | Digital, PWM |
 | SCL             | GPIO22               | I2C Clock |
 | SDA             | GPIO21               | I2C Data |
