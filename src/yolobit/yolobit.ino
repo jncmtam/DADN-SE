@@ -8,9 +8,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <Ultrasonic.h>
 #include <Adafruit_NeoPixel.h>
-#include <IRremote.h>
+#include <IRremote.hpp>
 
-#include "../config.h"
+#include "../../config.h"
 
 float temp = 0;
 float hum = 0;
@@ -19,7 +19,8 @@ int light = 0;
 int infrared = 0;
 bool led_enable = false;
 bool fan_enable = false;
-decode_results results;
+bool pump_enable = false;
+
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -27,7 +28,6 @@ DHT20 dht20;
 LiquidCrystal_I2C lcd(0x21, 16, 2);
 Ultrasonic ultrasonic(Ultrasonic_trigger, Ultrasonic_echo);
 Adafruit_NeoPixel NeoPixel(NUM_PIXELS, PIN_NEO_PIXEL, NEO_GRB + NEO_KHZ800);
-IRrecv irrecv(IR_pin);
 
 void wifi_connect() {
   Serial.print("Connected to WiFi.");
@@ -74,11 +74,11 @@ void callback_mqtt(char *topic, byte *payload, unsigned int length) {
       Serial.print((char)payload[i]);  
     }
     Serial.println();
-    if (strcmp((const char*)payload, "3")) {
+    if ((char)payload[0] == '3') {
       digitalWrite(Fan_pin, LOW);
       fan_enable = false;
     }
-    else if (strcmp((const char*)payload, "4")) {
+    else if ((char)payload[0] == '4') {
       digitalWrite(Fan_pin, HIGH);
       fan_enable = true;
     }
@@ -92,12 +92,12 @@ void callback_mqtt(char *topic, byte *payload, unsigned int length) {
     }
     Serial.println();
 
-    if (strcmp((const char*)payload, "5")) {
+    if ((char)payload[0] == '5') {
       NeoPixel.clear();
       NeoPixel.show();
       led_enable = false;
     }
-    else if (strcmp((const char*)payload, "6")) {
+    else if ((char)payload[0] == '6') {
       for (int pixel = 0; pixel < NUM_PIXELS; pixel++){
         NeoPixel.setPixelColor(pixel, NeoPixel.Color(0, 0, 255));
       }
@@ -175,16 +175,17 @@ void setup() {
   lcd.init();
   dht20.begin();
   NeoPixel.begin();
-  irrecv.enableIRIn();
+  IrReceiver.begin(IR_pin, ENABLE_LED_FEEDBACK);
 
   pinMode(Fan_pin, OUTPUT);
+  pinMode(PUMP_Pin, OUTPUT);
 
 
   lcd.backlight();
   lcd.setCursor(0, 0);
   lcd.print("0");
-  lcd.setCursor(4, 0);
-  lcd.print("°C");
+  lcd.setCursor(5, 0);
+  lcd.print("C");
   lcd.setCursor(10, 0);
   lcd.print("0");
   lcd.setCursor(14, 0);
@@ -198,17 +199,18 @@ void setup() {
   lcd.setCursor(14, 1);
   lcd.print("cm");
 
-  (Task_read_sensor, "Task_read_sensor", 2048, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(Task_read_sensor, "Task_read_sensor", 2048, NULL, 1, NULL, 0);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+
   client.loop();
-  if (irrecv.decode(&results)) {
-      Serial.println(results.value, HEX);
-      if(results.value == Button1) { 
+  if (IrReceiver.decode()) {
+      //Serial.println(results.value, HEX);
+      if(IrReceiver.decodedIRData.decodedRawData == Button1) { 
         if (fan_enable) {
-          digitalWrite(Fan_pin, HIGH); 
+          digitalWrite(Fan_pin, LOW); 
         } 
         else {
           digitalWrite(Fan_pin, HIGH);
@@ -216,14 +218,14 @@ void loop() {
         fan_enable = !fan_enable;
         send_mqtt(MQTT_TOPIC[0], fan_enable ? 4:3);
       } 
-      else if (results.value == Button2) { 
+      else if (IrReceiver.decodedIRData.decodedRawData == Button2) { 
         if (led_enable) {
           NeoPixel.clear();
           NeoPixel.show();
         }
         else {
           for(int pixel = 0; pixel < NUM_PIXELS; pixel++) {
-            NeoPixel.setPixelColor(pixel, NeoPixel.Color(0, 0, 255));
+            NeoPixel.setPixelColor(pixel, NeoPixel.Color(0, 255, 0));
           }
           NeoPixel.show();
         }
@@ -231,6 +233,16 @@ void loop() {
         led_enable = !led_enable;
         send_mqtt(MQTT_TOPIC[1], led_enable ? 6:5);
       }
-      irrecv.resume(); 
+      else if (IrReceiver.decodedIRData.decodedRawData == Button3) { 
+        if (pump_enable) {
+          digitalWrite(PUMP_Pin, LOW);
+        }
+        else {
+          digitalWrite(PUMP_Pin, HIGH);
+        }
+
+        pump_enable = !pump_enable;
+      }
+      IrReceiver.resume(); 
   }
 }
