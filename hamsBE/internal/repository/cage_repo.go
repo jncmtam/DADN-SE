@@ -95,3 +95,16 @@ func (r *CageRepository) IsOwnedByUser(ctx context.Context, userID, cageID strin
     return count > 0, err
 }
 
+func (r *CageRepository) CageExists(ctx context.Context, cageID string) (bool, error) {
+	query, err := queries.GetQuery("check_cage_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, cageID).Scan(&exists)
+	return exists, err
+}
+
+func (r *CageRepository) IsExistsID(ctx context.Context, cageID string) (bool, error) {
+	return r.CageExists(ctx, cageID)
+}

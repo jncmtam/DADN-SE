@@ -4,6 +4,7 @@ package routes
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"hamstercare/internal/middleware"
 	"hamstercare/internal/model"
@@ -20,13 +21,13 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	userRepo := repository.NewUserRepository(db)
 
 	cageRepo := repository.NewCageRepository(db)
-	cageService := service.NewCageService(cageRepo)
+	cageService := service.NewCageService(cageRepo, userRepo)
 
 	sensorRepo := repository.NewSensorRepository(db)
-	sensorService := service.NewSensorService(sensorRepo)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
 	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
 
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
@@ -49,14 +50,14 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		user.GET("/cages", func(c *gin.Context) {
 			userID, exists := c.Get("user_id")
 			if !exists {
-				log.Printf("user_id not found in context")
+				log.Printf("[ERROR] user_id not found in context")
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 				return
 			}
 			
 			cages, err := cageService.GetCagesByUserID(c.Request.Context(), userID.(string))
 			if err != nil {
-				log.Printf("Error fetching cages for user %s: %v", userID, err.Error())
+				log.Printf("[ERROR] Error fetching cages for user %s: %v", userID, err.Error())
 				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
 				return
 			}
@@ -70,20 +71,20 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			
 			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("Error fetching cage %s: %v", cageID, err.Error())
+				log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			}
 
 			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("Error fetching sensors for cage %s: %v", cageID, err.Error())
+				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
 				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
 				return
 			}
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("Error fetching devices for cage %s: %v", cageID, err.Error())
+				log.Printf("[ERROR] Error fetching devices for cage %s: %v", cageID, err.Error())
 				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
 				return
 			}
@@ -102,14 +103,14 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			
 			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
 			if err != nil {
-				log.Printf("Error fetching device %s: %v", deviceID, err.Error())
+				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			} 
 
 			rules, err := automationService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
 			if err != nil {
-				log.Printf("Error fetching rules for device %s: %v", deviceID, err.Error())
+				log.Printf("[ERROR] Error fetching rules for device %s: %v", deviceID, err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			} 
@@ -135,7 +136,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 
 			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("Invalid request body: %v", err.Error())
+				log.Printf("[ERROR] Invalid request body: %v", err.Error())
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 				return
 			}
@@ -152,7 +153,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-
 			rule := &model.AutomationRule{
 				SensorID:  req.SensorID,
 				DeviceID:  deviceID,
@@ -163,7 +163,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 			createRule, err := automationService.AddAutomationRule(c.Request.Context(), rule) 
 			if err != nil {
-				log.Printf("Failed to create automation rule: %v", err.Error())
+				log.Printf("[ERROR] Failed to create automation rule: %v", err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			} 
@@ -180,21 +180,34 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			
 			err := automationService.RemoveAutomationRule(c.Request.Context(), ruleID)
 			if err != nil {
-				log.Printf("Failed to delete automation rule: %v", err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			} 
-
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for ruleID: %s", ruleID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrRuleNotFound):
+						log.Printf("[ERROR] Automation rule not found: %s", ruleID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Automation rule not found"})
+					default:
+						log.Printf("[ERROR] Failed to delete automation rule %s: %v", ruleID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
+			}
+			
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Automation rule deleted successfully",
 			})
 		})
-
 	}
 }
+
+
+
+
 // OwnershipChecker định nghĩa interface kiểm tra quyền sở hữu
 type ownershipChecker interface {
     IsOwnedByUser(ctx context.Context, userID, entityID string) (bool, error)
+	IsExistsID(ctx context.Context, entityID string) (bool, error) 
 }
 
 // ownershipMiddleware kiểm tra quyền sở hữu của user đối với thực thể (cage, device, automation_rule)
@@ -202,30 +215,44 @@ func ownershipMiddleware(repo ownershipChecker, paramName string) gin.HandlerFun
     return func(c *gin.Context) {
         userID, exists := c.Get("user_id")
         if !exists {
-            log.Println("Missing userID in context")
+            log.Println("[ERROR] Missing userID in context")
             c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
             c.Abort()
             return
         }
 
         entityID := c.Param(paramName)
-        if entityID == "" {
-            log.Printf("Missing %s in request", paramName)
-            c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("%s is required", paramName)})
+		if err := service.IsValidUUID(entityID); err != nil {
+			log.Printf("[ERROR] Invalid UUID format for %s: %s", paramName, entityID)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+			c.Abort()
+			return 
+		}
+
+		entityExists, err := repo.IsExistsID(c.Request.Context(), entityID)
+		if err != nil {
+			log.Printf("[ERROR] Error checking existence of %s: %v", paramName, err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
             c.Abort()
             return
-        }
+		}
+		if !entityExists {
+			log.Printf("[ERROR] %s not found: %s", paramName, entityID)
+            c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("%s not found", paramName)})
+            c.Abort()
+            return
+		}
 
         owned, err := repo.IsOwnedByUser(c.Request.Context(), userID.(string), entityID)
         if err != nil {
-            log.Printf("Error checking ownership: %v", err)
+            log.Printf("[ERROR] Error checking ownership of %s %s: %v", paramName, entityID, err)
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
             c.Abort()
             return
         }
 
         if !owned {
-            log.Printf("Unauthorized access: User %s does not own %s %s", userID, paramName, entityID)
+            log.Printf("[ERROR] Unauthorized access: User %s does not own %s %s", userID.(string), paramName, entityID)
             c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
             c.Abort()
             return

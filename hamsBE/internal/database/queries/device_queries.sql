@@ -20,3 +20,6 @@ DELETE FROM devices WHERE id = $1;
 SELECT COUNT(*) 
 FROM devices JOIN cages ON devices.cage_id = cages.id 
 WHERE devices.id = $1 AND cages.user_id = $2;
+
+-- name: check_device_exists
+SELECT EXISTS(SELECT 1 FROM devices WHERE id = $1);

@@ -98,3 +98,13 @@ func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) (*model
 	}
 	return user, nil
 }
+
+func (r *UserRepository) UserExists(ctx context.Context, userID string) (bool, error) {
+	query, err := queries.GetQuery("check_user_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, userID).Scan(&exists)
+	return exists, err
+}

@@ -76,3 +76,17 @@ func (r *AutomationRepository) IsOwnedByUser(ctx context.Context, userID, ruleID
     err = r.db.QueryRowContext(ctx, query, ruleID, userID).Scan(&count)
     return count > 0, err
 }
+
+func (r *AutomationRepository) RuleExists(ctx context.Context, ruleID string) (bool, error) {
+	query, err := queries.GetQuery("check_rule_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, ruleID).Scan(&exists)
+	return exists, err
+}
+
+func (r *AutomationRepository) IsExistsID(ctx context.Context, ruleID string) (bool, error) {
+	return r.RuleExists(ctx, ruleID)
+}

@@ -40,3 +40,6 @@ UPDATE otp_request
 SET is_used = TRUE
 WHERE id = $1
 RETURNING id, user_id, otp_code, is_used;
+
+-- name: check_user_exists
+SELECT EXISTS(SELECT 1 FROM users WHERE id = $1);

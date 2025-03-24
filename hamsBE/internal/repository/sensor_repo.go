@@ -67,3 +67,13 @@ func (r *SensorRepository) DeleteSensorByID(ctx context.Context, sensorID string
 	_, err = r.db.ExecContext(ctx, query, sensorID)
 	return err
 }
+
+func (r *SensorRepository) SensorExists(ctx context.Context, sensorID string) (bool, error) {
+	query, err := queries.GetQuery("check_sensor_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, sensorID).Scan(&exists)
+	return exists, err
+}

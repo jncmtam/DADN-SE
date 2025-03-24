@@ -3,6 +3,7 @@ package routes
 
 import (
 	"database/sql"
+	"errors"
 	"hamstercare/internal/middleware"
 	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
@@ -18,13 +19,13 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 	userRepo := repository.NewUserRepository(db)
 
 	cageRepo := repository.NewCageRepository(db)
-	cageService := service.NewCageService(cageRepo)
+	cageService := service.NewCageService(cageRepo, userRepo)
 
 	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
 
 	sensorRepo := repository.NewSensorRepository(db)
-	sensorService := service.NewSensorService(sensorRepo)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
 	admin := r.Group("/admin")
 	admin.Use(middleware.JWTMiddleware(), authMiddleware("admin"))
@@ -95,17 +96,12 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Tạo một chuồng (cage) mới cho user.
 		admin.POST("/users/:id/cages", func(c *gin.Context) {
 			userID := c.Param("id")
-			if userID == "" {
-				log.Println("Missing userID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "userID is required"})
-				return
-			}
-			
+		
 			var req struct {
 				NameCage string `json:"name_cage" binding:"required"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("Invalid request body: %v", err)
+				log.Printf("[ERROR] Invalid request body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 				return
 			}
@@ -113,10 +109,21 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			// Tạo cage mới cho user
 			cage, err := cageService.CreateCage(c.Request.Context(), req.NameCage, userID)
 			if err != nil {
-				log.Printf("Error creating cage for user %s: %v", userID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for userID: %s", userID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrUserNotFound):
+						log.Printf("[ERROR] User not found: %s", userID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+					default:
+						log.Printf("[ERROR] Failed to creating cage for user %s: %v", userID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
+			
+			log.Printf("[INFO] Cage created successfully: (id: %s, name: %s", cage.ID, cage.Name)
 
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "Cage created successfully",
@@ -128,28 +135,34 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Thêm một thiết bị (device) mới vào chuồng.
 		admin.POST("/cages/:cageID/devices", func(c *gin.Context) {
 			cageID := c.Param("cageID")
-			if cageID == "" {
-				log.Println("Missing cageID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
-				return
-			}
 
 			var req struct {
 				Name string `json:"name" binding:"required"`
 				Type string `json:"type" binding:"required,oneof=display lock light pump fan"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("Invalid request body: %v", err)
+				log.Printf("[ERROR] Invalid request body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 				return
 			}
 
 			device, err := deviceService.CreateDevice(c.Request.Context(), req.Name, req.Type, cageID)
 			if err != nil {
-				log.Printf("Error creating device for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create device"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrCageNotFound):
+						log.Printf("[ERROR] Cage not found: %s", cageID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+					default:
+						log.Printf("[ERROR] Failed to creating device for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
+	
+			log.Printf("[INFO] Device created successfully: (id: %s, name: %s, type: %s", device.ID, device.Name, device.Type)
 
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "Device created successfully",
@@ -161,28 +174,34 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Thêm một cảm biến (sensor) mới vào chuồng 
 		admin.POST("/cages/:cageID/sensors", func(c *gin.Context) {
 			cageID := c.Param("cageID")
-			if cageID == "" {
-				log.Println("Missing cageID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
-				return
-			}
 
 			var req struct {
 				Name string `json:"name" binding:"required"`
-				Type string `json:"type" binding:"required,oneof=temperature humidity light distance weight"`
+				Type string `json:"type" binding:"required,oneof=temperature humidity light distance"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("Invalid request body: %v", err)
+				log.Printf("[ERROR] Invalid request body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 				return
 			}
 
 			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, cageID)
 			if err != nil {
-				log.Printf("Error creating sensor for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create sensor"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrCageNotFound):
+						log.Printf("[ERROR] Cage not found: %s", cageID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+					default:
+						log.Printf("[ERROR] Failed to creating sensor for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
+
+			log.Printf("[INFO] Sensor created successfully: (id: %s, name: %s)", sensor.ID, sensor.Name)
 
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "Sensor created successfully",
@@ -194,18 +213,24 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Xóa một chuồng (cage)
 		admin.DELETE("cages/:cageID", func(c *gin.Context) {
 			cageID := c.Param("cageID")
-			if cageID == "" {
-				log.Println("Missing cageID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
-				return
-			}		
 
 			err := cageService.DeleteCage(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("Error deleting cage %s: %v", cageID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrCageNotFound):
+						log.Printf("[ERROR] Cage not found: %s", cageID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+					default:
+						log.Printf("[ERROR] Failed to delete cage %s: %v", cageID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
+
+			log.Printf("[INFO] Cage deleted successfully: %s", cageID)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Cage deleted successfully",
@@ -215,18 +240,24 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Xóa một thiết bị (device)
 		admin.DELETE("/devices/:deviceID", func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
-			if deviceID == "" {
-				log.Println("Missing deviceID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "deviceID is required"})
-				return
-			}
 
 			err := deviceService.DeleteDevice(c.Request.Context(), deviceID)
 			if err != nil {
-				log.Printf("Error deleting device %s: %v", deviceID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not delete device"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for deviceID: %s", deviceID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrDeviceNotFound):
+						log.Printf("[ERROR] Device not found: %s", deviceID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+					default:
+						log.Printf("[ERROR] Failed to deleting device %s: %v", deviceID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
+			
+			log.Printf("[INFO] Device deleted successfully: %s", deviceID)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Device deleted successfully",
@@ -236,18 +267,24 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Xóa một cảm biến (sensor)
 		admin.DELETE("/sensors/:sensorID", func(c *gin.Context) {
 			sensorID := c.Param("sensorID")
-			if sensorID == "" {
-				log.Println("Missing sensorID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "sensorID is required"})
-				return
-			}
 
 			err := sensorService.DeleteSensor(c.Request.Context(), sensorID)
 			if err != nil {
-				log.Printf("Error deleting sensor %s: %v", sensorID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not delete sensor"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for sensorID: %s", sensorID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrSensorNotFound):
+						log.Printf("[ERROR] Sensor not found: %s", sensorID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Sensor not found"})
+					default:
+						log.Printf("[ERROR] Failed to deleting sensor %s: %v", sensorID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
+			
+			log.Printf("[INFO] Sensor deleted successfully: %s", sensorID)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Sensor deleted successfully",
@@ -257,29 +294,33 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Xem chi tiết của một chuồng (cage).
 		admin.GET("/cages/:cageID", func(c *gin.Context) {
 			cageID := c.Param("cageID")
-			if cageID == "" {
-				log.Println("Missing cageID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "cageID is required"})
-				return
-			}
 
 			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("Error fetching cage %s: %v", cageID, err)
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrCageNotFound):
+						log.Printf("[ERROR] Cage not found: %s", cageID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+					default:
+						log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
 
 			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("Error fetching sensors for cage %s: %v", cageID, err)
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("Error fetching devices for cage %s: %v", cageID, err)
-				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
@@ -294,17 +335,21 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Lấy danh sách các chuồng (cages) của một user.
 		admin.GET("/users/:id/cages", func(c *gin.Context) {
 			userID := c.Param("id")
-			if userID == "" {
-				log.Println("Missing userID in request")
-				c.JSON(http.StatusBadRequest, gin.H{"error": "userID is required"})
-				return
-			}
-			
+	
 			cages, err := cageService.GetCagesByUserID(c.Request.Context(), userID)
 			if err != nil {
-				log.Printf("Error fetching cages for user %s: %v", userID, err.Error())
-				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for userID: %s", userID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrUserNotFound):
+						log.Printf("[ERROR] User not found: %s", userID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+					default:
+						log.Printf("[ERROR] Error fetching cages for user %s: %v", userID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
 			}
 		
 			c.JSON(http.StatusOK, cages)

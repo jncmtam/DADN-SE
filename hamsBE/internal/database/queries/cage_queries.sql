@@ -23,3 +23,6 @@ SELECT id, name, status FROM cages WHERE id = $1;
 
 -- name: IsOwnedByUser_Cage
 SELECT COUNT(*) FROM cages WHERE id = $1 AND user_id = $2;
+
+-- name: check_cage_exists
+SELECT EXISTS(SELECT 1 FROM cages WHERE id = $1);

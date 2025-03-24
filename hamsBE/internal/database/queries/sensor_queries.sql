@@ -10,3 +10,6 @@ RETURNING id;
 
 -- name: delete_sensor_by_id
 DELETE FROM sensors WHERE id = $1;
+
+-- name: check_sensor_exists
+SELECT EXISTS(SELECT 1 FROM sensors WHERE id = $1);

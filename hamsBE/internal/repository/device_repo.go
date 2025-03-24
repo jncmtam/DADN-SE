@@ -98,3 +98,17 @@ func (r *DeviceRepository) IsOwnedByUser(ctx context.Context, userID, deviceID s
     err = r.db.QueryRowContext(ctx, query, deviceID, userID).Scan(&count)
     return count > 0, err
 }
+
+func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (bool, error) {
+	query, err := queries.GetQuery("check_device_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(&exists)
+	return exists, err
+}
+
+func (r *DeviceRepository) IsExistsID(ctx context.Context, deviceID string) (bool, error) {
+	return r.DeviceExists(ctx, deviceID)
+}
