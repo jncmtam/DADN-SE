@@ -23,8 +23,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
-	sensorRepo := repository.NewSensorRepository(db)
-	sensorService := service.NewSensorService(sensorRepo, cageRepo)
+	//sensorRepo := repository.NewSensorRepository(db)
+	//sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
 	deviceRepo := repository.NewDeviceRepository(db)
 	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
@@ -65,6 +65,9 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, cages)
 		})
 
+		// Thêm 1 API cho FE cập nhật value sensor 
+		// Gửi dữ liệu cảm biến có giá trị lấy ra từ redis
+
 		// Xem chi tiết một chuồng (a cage) của user
 		user.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
 			cageID := c.Param("cageID")
@@ -76,12 +79,14 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
-			if err != nil {
-				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
-				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
-				return
-			}
+			// Lay gia trị cua sensor từ redis 
+
+			// sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			// if err != nil {
+			// 	log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
+			// 	c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+			// 	return
+			// }
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("[ERROR] Error fetching devices for cage %s: %v", cageID, err.Error())
@@ -92,7 +97,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
-				"sensors": sensors,
+				//"sensors": sensors,
 				"devices": devices,
 			})
 		})
@@ -106,7 +111,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
-			} 
+			}  
 
 			rules, err := automationService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
 			if err != nil {
@@ -114,6 +119,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			} 
+
+			// Thêm xử lý lấy schedule rule
 
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
@@ -198,6 +205,12 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				"message": "Automation rule deleted successfully",
 			})
 		})
+
+		// Thêm API tạo schedule
+		// Thêm API xóa schedule
+
+		// Bật / Tắt / Auto device
+		// Active/ Inactive cage
 	}
 }
 

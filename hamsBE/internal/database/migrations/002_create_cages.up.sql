@@ -16,3 +16,4 @@ CREATE TABLE cages (
 );
 
 CREATE INDEX idx_cages_user_id ON cages(user_id);
+
