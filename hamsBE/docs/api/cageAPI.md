@@ -499,7 +499,7 @@
         "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
         "name": "Fan 1",
         "status": "off",
-        "rule": [
+        "automation_rule": [
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
                 "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b", 
@@ -508,6 +508,17 @@
                 "unit": "oC",
                 "action": "turn_on",
             }
+        ],
+        "schedule_rule": [
+          {
+              "id": "3d142e2a-8d48-4bc8-8ff1-eadf2a9211bf",
+              "execution_time": "0000-01-01T17:17:00Z",
+              "days": [
+                  "Mon",
+                  "Tue"
+              ],
+              "action": "turn_on"
+          }
         ]
     }
     ```
@@ -556,7 +567,7 @@
   ```
   
 - **Response**:
-  - `201 Created`: Cage created successfully
+  - `201 Created`: 
     ```json
     {
       "message": "Automation rule created successfully",
@@ -607,6 +618,101 @@
     ```json
     {
         "message": "Automation rule deleted successfully"
+    }
+    ```
+  - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - `403 Forbidden`: 
+    ```json
+    {
+        "error": "Permission denied"
+    }
+    ```
+  - `404 Not Found`: ruleID not found
+    ```json
+    {
+        "error": "Automation rule not found"
+    }
+    ```
+  - `500 Internal Server Error`:
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
+### 6. Add Schedule Rule for Device 
+- **Method**: `POST`
+- **URL**: `/user/devices/:deviceID/schedules`
+- **Headers**: 
+  - `Authorization: Bearer <token>`
+- **Parameters**:
+    - deviceID (string, required): ID thiết bị muốn tạo schedules rule.
+- **Request Body**:
+  ```json
+    {
+        "execution_time": "17:17"
+        , "days": ["Mon", "Tue"]
+        , "action": "turn_on"
+    }
+  ```
+  
+- **Response**:
+  - `201 Created`: 
+    ```json
+    {
+      "id": "8e12c57f-62bf-4706-9f4f-eb1e8db8f382",
+      "message": "Schedule rule created successfully"
+    }
+    ```
+  - `400 Bad Request`: Invalid request body
+    ```json
+    {
+      "error": "Invalid request body"
+    }
+    ```
+  - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - `403 Forbidden`: Permission denied
+    ```json
+    {
+        "error": "Permission denied"
+    }
+    ```
+  - `404 Not Found`: deviceID not found
+     ```json
+    {
+        "error": "Device not found"
+    }
+    ```
+  - `500 Internal Server Error`:
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
+### 7. Delete Schedule Rule
+- **Method**: `DELETE`
+- **URL**: `/user/schedules/:ruleID`
+- **Headers**: 
+  - `Authorization: Bearer <token>`
+- **Parameters**:
+    - ruleID (string, required): ID của lệnh schedule cần xóa.
+
+- **Response**:
+  - `200 OK`: 
+    ```json
+    {
+      "message": "Schedule rule deleted successfully"
     }
     ```
   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)

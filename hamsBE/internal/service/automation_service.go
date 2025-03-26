@@ -17,7 +17,7 @@ func NewAutomationService(AutomationRepo *repository.AutomationRepository) *Auto
 }
 
 
-func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.AutomationRule) (*model.AutomationRule, error) {
+func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.AutomationRule, cageService *CageService) (*model.AutomationRule, error) {
 	if rule == nil {
 		return nil, errors.New("automation rule is required")
 	}
@@ -26,7 +26,17 @@ func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.A
 		return nil, errors.New("all fields are required")
 	}
 
-	rule, err := s.AutomationRepo.CreateAutomationRule(ctx, rule)
+	// Kiem tra sensorID cùng cage với deviceID
+	isSame, err := cageService.CageRepo.IsSameCage(ctx, rule.DeviceID, rule.SensorID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isSame {
+		return nil, fmt.Errorf("%w: sensor %s and device %s", ErrDifferentCage, rule.SensorID, rule.DeviceID)
+	}
+	
+	rule, err = s.AutomationRepo.CreateAutomationRule(ctx, rule)
 	if err != nil {
 		return nil, err
 	}

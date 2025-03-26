@@ -108,3 +108,20 @@ func (r *CageRepository) CageExists(ctx context.Context, cageID string) (bool, e
 func (r *CageRepository) IsExistsID(ctx context.Context, cageID string) (bool, error) {
 	return r.CageExists(ctx, cageID)
 }
+
+
+// Kiểm tra device và sensor có cùng cage không bằng 1 query duy nhất
+func (r *CageRepository) IsSameCage(ctx context.Context, deviceID, sensorID string) (bool, error) {
+    query, err := queries.GetQuery("check_deviceID_isSameCage_sensorID")
+	if err != nil {
+		return false, err
+	}
+	var count int
+	
+    err = r.db.QueryRowContext(ctx, query, deviceID, sensorID).Scan(&count)
+    if err != nil {
+        return false, err
+    }
+
+    return count > 0, nil
+}

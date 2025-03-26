@@ -22,18 +22,11 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
+
 	sensorRepo := repository.NewSensorRepository(db)
 	sensorService := service.NewSensorService(sensorRepo, cageRepo)
-
-	automationRepo := repository.NewAutomationRepository(db)
-	automationService := service.NewAutomationService(automationRepo)
-
-	scheduleRepo := repository.NewScheduleRepository(db)
-	scheduleService := service.NewScheduleService(scheduleRepo)
-
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationService, scheduleService)
-
 
 
 	otpRepo := repository.NewOTPRepository(db)
@@ -166,7 +159,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 					default:
 						log.Printf("[ERROR] Failed to creating cage for user %s: %v", userID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
@@ -205,7 +198,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
 					default:
 						log.Printf("[ERROR] Failed to creating device for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
@@ -244,7 +237,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
 					default:
 						log.Printf("[ERROR] Failed to creating sensor for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
@@ -273,7 +266,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
 					default:
 						log.Printf("[ERROR] Failed to delete cage %s: %v", cageID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
@@ -354,7 +347,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
 					default:
 						log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
@@ -371,7 +364,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("Error fetching devices for cage %s: %v", cageID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			}
 
@@ -398,7 +391,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 					default:
 						log.Printf("[ERROR] Error fetching cages for user %s: %v", userID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}

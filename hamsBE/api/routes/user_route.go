@@ -24,6 +24,9 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
+
 	//sensorRepo := repository.NewSensorRepository(db)
 	//sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
@@ -32,9 +35,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 
 	scheduleRepo := repository.NewScheduleRepository(db)
 	scheduleService := service.NewScheduleService(scheduleRepo)
-
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationService, scheduleService)
 
 
 	user := r.Group("/user")
@@ -170,8 +170,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			// Thêm kiểm tra sensor ID có tồn tại và có thuộc cage của chuồng đó không?
-
 			rule := &model.AutomationRule{
 				SensorID:  req.SensorID,
 				DeviceID:  deviceID,
@@ -180,12 +178,18 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				Unit:      req.Unit,
 				Action:    req.Action,
 			}
-			createRule, err := automationService.AddAutomationRule(c.Request.Context(), rule) 
+			createRule, err := automationService.AddAutomationRule(c.Request.Context(), rule, cageService) 
 			if err != nil {
-				log.Printf("[ERROR] Failed to create automation rule: %v", err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			} 
+				switch {
+					case errors.Is(err, service.ErrDifferentCage): 
+						log.Printf("[ERROR]  Sensor [%s] and device [%s] are not in the same cage.", req.SensorID, deviceID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": " Sensor and device are not in the same cage."})
+					default:
+						log.Printf("[ERROR] Failed to create automation rule: %v", err.Error())
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+					}
+					return
+			}
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Automation rule created successfully",
@@ -208,7 +212,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Automation rule not found"})
 					default:
 						log.Printf("[ERROR] Failed to delete automation rule %s: %v", ruleID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
@@ -288,7 +292,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Schedule rule not found"})
 					default:
 						log.Printf("[ERROR] Failed to delete schedule rule %s: %v", ruleID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}

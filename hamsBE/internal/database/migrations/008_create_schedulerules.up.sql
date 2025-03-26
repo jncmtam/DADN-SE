@@ -1,6 +1,6 @@
 CREATE TABLE schedule_rules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    device_id UUID NOT NULL REFERENCES devices(id),
+    device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
     execution_time TIME NOT NULL,
     days TEXT[] NOT NULL,
     action TEXT NOT NULL CHECK (action IN ('turn_on', 'turn_off')),

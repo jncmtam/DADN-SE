@@ -77,6 +77,8 @@ var ErrCageNotFound = errors.New("cage not found")
 var ErrDeviceNotFound = errors.New("device not found")
 var ErrSensorNotFound = errors.New("sensor not found")
 var ErrRuleNotFound = errors.New("automation rule not found")
+var ErrDifferentCage = errors.New("sensor and device are not in the same cage")
+
 
 func (s *CageService) DeleteCage(ctx context.Context, cageID string) error {
 	if cageID == "" {
@@ -134,4 +136,14 @@ func IsValidUUID(id string) error {
 		return ErrInvalidUUID
 	}
 	return nil
+}
+
+func (c *CageService) IsSameCage(ctx context.Context, deviceID, sensorID string) (bool, error) {
+     
+	isSame, err := c.CageRepo.IsSameCage(ctx, deviceID, sensorID)
+	if err != nil {
+		return false, fmt.Errorf("error checking cage existence: %w", err)
+	}
+
+	return isSame, nil
 }

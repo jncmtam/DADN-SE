@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	//"fmt"
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
 )
@@ -21,7 +20,7 @@ func NewScheduleService(ScheduleRepo *repository.ScheduleRepository) *ScheduleSe
 
 func (s *ScheduleService) AddScheduleRule(ctx context.Context, rule *model.ScheduleRule) (*model.ScheduleRule, error) {
 	if rule == nil {
-		return nil, errors.New("Schedule rule is required")
+		return nil, errors.New("schedule rule is required")
 	}
 	if rule.DeviceID == "" || rule.ExecutionTime == "" ||
 		rule.Days == nil   || rule.Action == "" {
