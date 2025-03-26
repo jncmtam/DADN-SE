@@ -70,15 +70,15 @@ func (r *ScheduleRepository) GetScheduleRulesByDeviceID(ctx context.Context, dev
 	return rules, nil
 }
 
-// func (r *ScheduleRepository) IsOwnedByUser(ctx context.Context, userID, ruleID string) (bool, error) {
-// 	query, err := queries.GetQuery("IsOwnedByUser_Schedule")
-// 	if err != nil {
-// 		return false, err
-// 	}
-// 	var count int
-//     err = r.db.QueryRowContext(ctx, query, ruleID, userID).Scan(&count)
-//     return count > 0, err
-// }
+func (r *ScheduleRepository) IsOwnedByUser(ctx context.Context, userID, ruleID string) (bool, error) {
+	query, err := queries.GetQuery("IsOwnedByUser_Schedule")
+	if err != nil {
+		return false, err
+	}
+	var count int
+    err = r.db.QueryRowContext(ctx, query, ruleID, userID).Scan(&count)
+    return count > 0, err
+}
 
 func (r *ScheduleRepository) RuleExists(ctx context.Context, ruleID string) (bool, error) {
 	query, err := queries.GetQuery("check_schedule_rule_exists")

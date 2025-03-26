@@ -13,3 +13,10 @@ DELETE FROM schedule_rules WHERE id = $1;
 SELECT id, execution_time, days, action
 FROM schedule_rules
 WHERE device_id = $1;
+
+-- name: IsOwnedByUser_Schedule
+SELECT COUNT(*) 
+FROM schedule_rules 
+    JOIN devices ON schedule_rules.device_id = devices.id 
+    JOIN cages ON devices.cage_id = cages.id 
+WHERE schedule_rules.id = $1 AND cages.user_id = $2;

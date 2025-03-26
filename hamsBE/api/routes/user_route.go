@@ -278,7 +278,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm API xóa schedule
-		user.DELETE("/schedules/:ruleID", func(c *gin.Context) {
+		user.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
 			ruleID := c.Param("ruleID")
 			
 			err := scheduleService.RemoveScheduleRule(c.Request.Context(), ruleID)

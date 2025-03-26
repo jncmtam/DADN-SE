@@ -49,18 +49,18 @@ func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID str
 		return errors.New("ruleID is required")
 	}
 
-		// Kiểm tra cageID hợp lệ
-		if err := IsValidUUID(ruleID); err != nil {
-			return err 
-		}
-		
-		exists, err := s.AutomationRepo.RuleExists(ctx, ruleID)
-		if err != nil {
-			return fmt.Errorf("error checking automation rule existence: %w", err)
-		}
-		if !exists {
-			return fmt.Errorf("%w: automation rule with ID %s does not exist", ErrRuleNotFound, ruleID)
-		}
+	// Kiểm tra cageID hợp lệ
+	if err := IsValidUUID(ruleID); err != nil {
+		return err 
+	}
+	
+	exists, err := s.AutomationRepo.RuleExists(ctx, ruleID)
+	if err != nil {
+		return fmt.Errorf("error checking automation rule existence: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("%w: automation rule with ID %s does not exist", ErrRuleNotFound, ruleID)
+	}
 	
 	return s.AutomationRepo.DeleteAutomationRule(ctx, ruleID)
 }
