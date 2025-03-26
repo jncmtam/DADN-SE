@@ -22,11 +22,19 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
-
 	sensorRepo := repository.NewSensorRepository(db)
 	sensorService := service.NewSensorService(sensorRepo, cageRepo)
+
+	automationRepo := repository.NewAutomationRepository(db)
+	automationService := service.NewAutomationService(automationRepo)
+
+	scheduleRepo := repository.NewScheduleRepository(db)
+	scheduleService := service.NewScheduleService(scheduleRepo)
+
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationService, scheduleService)
+
+
 
 	otpRepo := repository.NewOTPRepository(db)
 	authService := service.NewAuthService(userRepo, otpRepo)
@@ -100,6 +108,38 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 			c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user_id": user.ID})
 		})
+
+		admin.DELETE("/users/:user_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+            // Kiểm tra quyền admin
+            role, exists := c.Get("role")
+            if !exists || role != "admin" {
+                c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete users"})
+                return
+            }
+
+            userID := c.Param("user_id")
+            if userID == "" {
+                c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
+                return
+            }
+
+            err := authService.DeleteUser(c.Request.Context(), userID)
+            if err != nil {
+                log.Printf("Failed to delete user %s: %v", userID, err)
+                if errors.Is(err, errors.New("user not found")) {
+                    c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+                } else {
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user: " + err.Error()})
+                }
+                return
+            }
+
+            c.JSON(http.StatusOK, gin.H{
+                "message":   "User deleted successfully",
+                "user_id":   userID,
+                "timestamp": time.Now().UTC(),
+            })
+        })
 
 		// Tạo một chuồng (cage) mới cho user.
 		admin.POST("/users/:id/cages", func(c *gin.Context) {
@@ -319,12 +359,15 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 					return
 			}
 
-			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
-			if err != nil {
-				log.Printf("Error fetching sensors for cage %s: %v", cageID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
+			// Lấy id của sensor
+			// 
+
+			// sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			// if err != nil {
+			// 	log.Printf("Error fetching sensors for cage %s: %v", cageID, err)
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			// 	return
+			// }
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("Error fetching devices for cage %s: %v", cageID, err)
@@ -335,7 +378,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
-				"sensors": sensors,
+				//"sensors": sensors,
 				"devices": devices,
 			})
 		})
@@ -362,38 +405,6 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		
 			c.JSON(http.StatusOK, cages)
 		})
-
-		admin.DELETE("/users/:user_id", middleware.JWTMiddleware(), func(c *gin.Context) {
-            // Kiểm tra quyền admin
-            role, exists := c.Get("role")
-            if !exists || role != "admin" {
-                c.JSON(http.StatusForbidden, gin.H{"error": "Only admins can delete users"})
-                return
-            }
-
-            userID := c.Param("user_id")
-            if userID == "" {
-                c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
-                return
-            }
-
-            err := authService.DeleteUser(c.Request.Context(), userID)
-            if err != nil {
-                log.Printf("Failed to delete user %s: %v", userID, err)
-                if errors.Is(err, errors.New("user not found")) {
-                    c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-                } else {
-                    c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user: " + err.Error()})
-                }
-                return
-            }
-
-            c.JSON(http.StatusOK, gin.H{
-                "message":   "User deleted successfully",
-                "user_id":   userID,
-                "timestamp": time.Now().UTC(),
-            })
-        })
 }
 
 func authMiddleware(requiredRole string) gin.HandlerFunc {

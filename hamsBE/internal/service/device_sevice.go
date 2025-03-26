@@ -11,10 +11,14 @@ import (
 type DeviceService struct {
 	DeviceRepo *repository.DeviceRepository
 	CageRepo *repository.CageRepository
+	AutomationService *AutomationService
+	ScheduleSerive *ScheduleService
 }
 
-func NewDeviceService(deviceRepo *repository.DeviceRepository, CageRepo *repository.CageRepository) *DeviceService {
-	return &DeviceService{DeviceRepo: deviceRepo, CageRepo: CageRepo}
+func NewDeviceService(deviceRepo *repository.DeviceRepository, CageRepo *repository.CageRepository,
+	AutomationService *AutomationService, ScheduleSerive *ScheduleService) *DeviceService {
+	return &DeviceService{DeviceRepo: deviceRepo, CageRepo: CageRepo, 
+		AutomationService: AutomationService, ScheduleSerive: ScheduleSerive}
 }
 
 func (s *DeviceService) CreateDevice(ctx context.Context, name, deviceType, cageID string) (*model.Device, error) {

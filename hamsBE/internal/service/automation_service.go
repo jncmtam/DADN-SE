@@ -55,7 +55,7 @@ func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID str
 	return s.AutomationRepo.DeleteAutomationRule(ctx, ruleID)
 }
 
-func (s *AutomationService) GetRulesByDeviceID(ctx context.Context, deviceID string) ([]*model.AutomationRule, error) {
+func (s *AutomationService) GetRulesByDeviceID(ctx context.Context, deviceID string) ([]*model.AutoRuleResByDeviceID, error) {
 	if deviceID == "" {
 		return nil, errors.New("deviceID is required")
 	}

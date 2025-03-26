@@ -43,7 +43,7 @@ func (r *AutomationRepository) DeleteAutomationRule(ctx context.Context, ruleID 
 }
 
 
-func (r *AutomationRepository) GetAutomationRulesByDeviceID(ctx context.Context, deviceID string) ([]*model.AutomationRule, error) {
+func (r *AutomationRepository) GetAutomationRulesByDeviceID(ctx context.Context, deviceID string) ([]*model.AutoRuleResByDeviceID, error) {
 	query, err := queries.GetQuery("get_automation_rules_by_deviceID")
 	if err != nil {
 		return nil, err
@@ -55,9 +55,9 @@ func (r *AutomationRepository) GetAutomationRulesByDeviceID(ctx context.Context,
 	}
 	defer rows.Close()
 
-	var rules []*model.AutomationRule
+	var rules []*model.AutoRuleResByDeviceID
 	for rows.Next() {
-		rule := &model.AutomationRule{}
+		rule := &model.AutoRuleResByDeviceID{}
 		err := rows.Scan(&rule.ID, &rule.SensorID, &rule.Condition, &rule.Threshold, &rule.Unit, &rule.Action)
 		if err != nil {
 			return nil, err
@@ -78,7 +78,7 @@ func (r *AutomationRepository) IsOwnedByUser(ctx context.Context, userID, ruleID
 }
 
 func (r *AutomationRepository) RuleExists(ctx context.Context, ruleID string) (bool, error) {
-	query, err := queries.GetQuery("check_rule_exists")
+	query, err := queries.GetQuery("check_automation_rule_exists")
 	if err != nil {
 		return false, err
 	}

@@ -280,7 +280,7 @@ func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {
 
 func (r *UserRepository) UserExists(ctx context.Context, userID string) (bool, error) {
 	query, err := queries.GetQuery("check_user_exists")
-	if err != nil {
+    if err != nil {
 		return false, err
 	}
 	var exists bool

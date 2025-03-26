@@ -10,6 +10,7 @@ import (
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
+	"time"
 
 	"log"
 	"net/http"
@@ -26,11 +27,14 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	//sensorRepo := repository.NewSensorRepository(db)
 	//sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
-
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
+
+	scheduleRepo := repository.NewScheduleRepository(db)
+	scheduleService := service.NewScheduleService(scheduleRepo)
+
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationService, scheduleService)
 
 
 	user := r.Group("/user")
@@ -58,7 +62,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			cages, err := cageService.GetCagesByUserID(c.Request.Context(), userID.(string))
 			if err != nil {
 				log.Printf("[ERROR] Error fetching cages for user %s: %v", userID, err.Error())
-				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			}
 		
@@ -113,20 +117,26 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}  
 
-			rules, err := automationService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
+			automationRules, err := automationService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
 			if err != nil {
-				log.Printf("[ERROR] Error fetching rules for device %s: %v", deviceID, err.Error())
+				log.Printf("[ERROR] Error fetching automation rules for device %s: %v", deviceID, err.Error())
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			} 
 
-			// Thêm xử lý lấy schedule rule
+			scheduleRules, err := scheduleService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
+			if err != nil {
+				log.Printf("[ERROR] Error fetching schedule rules for device %s: %v", deviceID, err.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			} 
 
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
 				"name": device.Name,
 				"status": device.Status,
-				"rule": rules,
+				"automation_rule": automationRules,
+				"schedule_rule": scheduleRules,
 			})
 		})
 
@@ -159,6 +169,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
 				return
 			}
+
+			// Thêm kiểm tra sensor ID có tồn tại và có thuộc cage của chuồng đó không?
 
 			rule := &model.AutomationRule{
 				SensorID:  req.SensorID,
@@ -207,7 +219,84 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm API tạo schedule
+		user.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+			
+			var req struct {
+				ExecutionTime 	string `json:"execution_time" binding:"required"`
+				Days 			[]string `json:"days" binding:"required"`
+				Action 			string `json:"action" binding:"required,oneof=turn_on turn_off"`
+			}
+
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("[ERROR] Invalid request body: %v", err.Error())
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			// Kiểm tra ExecutionTime có đúng định dạng HH:MM không
+			_, err := time.Parse("15:04", req.ExecutionTime)
+			if err != nil {
+				log.Printf("[ERROR] Invalid execution_time format: %v", err.Error())
+				c.JSON(http.StatusBadRequest, gin.H{"error": "execution_time must be in format HH:MM"})
+				return
+			}
+
+			// Kiểm tra Days có giá trị hợp lệ không
+			validDays := map[string]bool{
+				"Mon": true, "Tue": true, "Wed": true, "Thu": true, "Fri": true, "Sat": true, "Sun": true,
+			}
+			for _, day := range req.Days {
+				if !validDays[day] {
+					log.Printf("[ERROR] Invalid day in schedule: %s", day)
+					c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: Mon, Tue, Wed, Thu, Fri, Sat, Sun"})
+					return
+				}
+			}
+
+			rule := &model.ScheduleRule{
+				ExecutionTime:  req.ExecutionTime,
+				Days:  			req.Days,
+				DeviceID: 		deviceID,
+				Action: 		req.Action,
+			}
+			createSchedule, err := scheduleService.AddScheduleRule(c.Request.Context(), rule) 
+			if err != nil {
+				log.Printf("[ERROR] Failed to create schedule rule: %v", err.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			} 
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Schedule rule created successfully",
+				"id": createSchedule.ID,
+			})
+		})
+
 		// Thêm API xóa schedule
+		user.DELETE("/schedules/:ruleID", func(c *gin.Context) {
+			ruleID := c.Param("ruleID")
+			
+			err := scheduleService.RemoveScheduleRule(c.Request.Context(), ruleID)
+			if err != nil {
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for ruleID: %s", ruleID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrRuleNotFound):
+						log.Printf("[ERROR] Schedule rule not found: %s", ruleID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Schedule rule not found"})
+					default:
+						log.Printf("[ERROR] Failed to delete schedule rule %s: %v", ruleID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
+					return
+			}
+			
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Schedule rule deleted successfully",
+			})
+		})
 
 		// Bật / Tắt / Auto device
 		// Active/ Inactive cage

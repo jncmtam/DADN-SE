@@ -18,5 +18,5 @@ FROM automation_rules
     JOIN cages ON devices.cage_id = cages.id 
 WHERE automation_rules.id = $1 AND cages.user_id = $2;
 
--- name: check_rule_exists
+-- name: check_automation_rule_exists
 SELECT EXISTS(SELECT 1 FROM automation_rules WHERE id = $1);
