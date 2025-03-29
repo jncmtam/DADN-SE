@@ -2,9 +2,12 @@
 entity "Users" as U {
   + id : UUID [PK]
   --
-  name : string
+  username : string
   email : string [UNIQUE]
-  password : string
+  password_hash : string
+  avatar_url : string
+  otp_secret : string
+  is_email_verified : boolean
   role : enum(admin, user)
   created_at : timestamp
   updated_at : timestamp
