@@ -2,9 +2,12 @@
 entity "Users" as U {
   + id : UUID [PK]
   --
-  name : string
+  username : string
   email : string [UNIQUE]
-  password : string
+  password_hash : string
+  avatar_url : string
+  otp_secret : string
+  is_email_verified : boolean
   role : enum(admin, user)
   created_at : timestamp
   updated_at : timestamp
@@ -64,6 +67,17 @@ entity "AutomationRules" as AR {
   created_at : timestamp
 }
 
+entity "ScheduleRules" as SR {
+  + id : UUID [PK]
+  --
+  device_id : UUID [FK -> Devices.id]
+  execution_time : TIME
+  days : TEXT[]  -- Chỉ nhận giá trị từ ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  action : enum(turn_on, turn_off)
+  created_at : timestamp
+}
+
+
 entity "Notifications" as N {
   + id : UUID [PK]
   --
@@ -77,6 +91,7 @@ C ||--o{ S : "has"
 C ||--o{ D : "has"
 S ||--o{ AR : "triggers"
 D ||--o{ AR : "controlled by"
+D ||--o{ SR : "controlled by"
 U ||--o{ N : "receives"
 C ||--o{ ST : "shows"
 @enduml

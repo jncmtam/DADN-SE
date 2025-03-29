@@ -83,4 +83,7 @@ RETURNING id, username, email, created_at, updated_at;
 
 -- name: delete_user
 DELETE FROM users
-WHERE id = $1
+WHERE id = $1;
+
+-- name: check_user_exists
+SELECT EXISTS(SELECT 1 FROM users WHERE id = $1);

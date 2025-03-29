@@ -107,19 +107,21 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, userID, newPassword
 }
 
 func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) (*model.User, error) {
-    user := &model.User{}
-    query, err := queries.GetQuery("verify_email")
-    if err != nil {
-        return nil, err
-    }
-    err = r.db.QueryRowContext(ctx, query, userID).Scan(
-        &user.ID, &user.Username, &user.Email, &user.AvatarURL, &user.IsEmailVerified, &user.UpdatedAt,
-    )
-    if err != nil {
-        return nil, err
-    }
-    return user, nil
+	user := &model.User{}
+	query, err := queries.GetQuery("verify_email")
+	if err != nil {
+		return nil, err
+	}
+	err = r.db.QueryRowContext(ctx, query, userID).Scan(
+		&user.ID, &user.Username, &user.Email, &user.IsEmailVerified, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
+
+
 
 func (r *UserRepository) DeleteRefreshToken(ctx context.Context, userID string) error {
     query, err := queries.GetQuery("delete_refresh_tokens")
@@ -274,4 +276,14 @@ func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {
     }
 
     return nil
+}
+
+func (r *UserRepository) UserExists(ctx context.Context, userID string) (bool, error) {
+	query, err := queries.GetQuery("check_user_exists")
+    if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, userID).Scan(&exists)
+	return exists, err
 }
