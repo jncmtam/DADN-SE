@@ -103,7 +103,7 @@ func SetupAuthRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Yêu cầu OTP để đổi mật khẩu
+		// Đổi mật khẩu (chỉ cần mật khẩu cũ và mật khẩu mới)
 		auth.POST("/change-password", middleware.JWTMiddleware(), func(c *gin.Context) {
 			userID := c.GetString("user_id")
 			if userID == "" {
@@ -111,45 +111,8 @@ func SetupAuthRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			otp, err := authService.CreateOTP(c.Request.Context(), userID)
-			if err != nil {
-				log.Printf("Failed to create OTP for password change: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initiate password change: " + err.Error()})
-				return
-			}
-
-			// Fetch the user to get their email
-			user, err := userRepo.GetUserByID(c.Request.Context(), userID)
-			if err != nil {
-				log.Printf("Failed to fetch user: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user: " + err.Error()})
-				return
-			}
-
-			// Send the OTP to the user's email
-			err = utils.SendEmail(user.Email, "Change Password", "Here is your OTP to change your password:", otp.OTPCode)
-			if err != nil {
-				log.Printf("Failed to send OTP email: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP email: " + err.Error()})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message":    "OTP sent to your email",
-				"expires_at": otp.ExpiresAt,
-			})
-		})
-
-		// Xác minh OTP và đổi mật khẩu
-		auth.POST("/change-password/verify", middleware.JWTMiddleware(), func(c *gin.Context) {
-			userID := c.GetString("user_id")
-			if userID == "" {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-				return
-			}
-
 			var req struct {
-				OTPCode     string `json:"otp_code" binding:"required"`
+				OldPassword string `json:"old_password" binding:"required"`
 				NewPassword string `json:"new_password" binding:"required"`
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
@@ -158,22 +121,20 @@ func SetupAuthRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			// Look up the user by userID to get the email
-			user, err := userRepo.GetUserByID(c.Request.Context(), userID)
-			if err != nil {
-				log.Printf("Failed to fetch user: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user: " + err.Error()})
-				return
-			}
-
-			err = authService.ChangePassword(c.Request.Context(), user.Email, req.OTPCode, req.NewPassword)
+			err := authService.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword)
 			if err != nil {
 				log.Printf("Failed to change password for user %s: %v", userID, err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to change password: " + err.Error()})
+				if strings.Contains(err.Error(), "invalid old password") {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid old password"})
+				} else {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to change password: " + err.Error()})
+				}
 				return
 			}
 
-			c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Password changed successfully",
+			})
 		})
 
 		// Yêu cầu OTP để quên mật khẩu

@@ -36,8 +36,6 @@ CREATE TABLE otp_request (
 -- Create index on users.email for better query performance
 CREATE INDEX idx_users_email ON users(email);
 
--- Avatar
-ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT '';
 
 
 

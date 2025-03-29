@@ -9,6 +9,7 @@ import (
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -199,56 +200,84 @@ func generateOTP(length int) string {
 	return string(b)
 }
 
-func (s *AuthService) ChangePassword(ctx context.Context, email, otpCode, newPassword string) error {
-	if email == "" {
-		return errors.New("email cannot be empty")
-	}
-	if otpCode == "" {
-		return errors.New("OTP code cannot be empty")
-	}
-	if newPassword == "" {
-		return errors.New("new password cannot be empty")
-	}
-
+// ChangePassword (đổi mật khẩu bằng mật khẩu cũ và mật khẩu mới)
+func (s *AuthService) ChangePassword(ctx context.Context, identifier, oldPasswordOrOTP, newPassword string) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	user, err := s.UserRepo.FindUserByEmail(ctx, email)
+	var user *model.User
+	var err error
+
+	// Kiểm tra identifier là userID hay email
+	if strings.Contains(identifier, "@") {
+		// identifier là email (dùng cho forgot-password)
+		user, err = s.UserRepo.FindUserByEmail(ctx, identifier)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("user not found: %w", err)
+			}
+			return fmt.Errorf("failed to fetch user by email: %w", err)
+		}
+
+		// Xác minh OTP (dùng cho forgot-password)
+		otp, err := s.OTPRepo.VerifyOTP(ctx, user.ID, oldPasswordOrOTP)
+		if err != nil {
+			return fmt.Errorf("invalid or expired OTP: %w", err)
+		}
+
+		tx, err := s.UserRepo.DB().BeginTx(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to start transaction: %w", err)
+		}
+		defer tx.Rollback()
+
+		_, err = s.OTPRepo.MarkOTPAsUsed(ctx, otp.ID)
+		if err != nil {
+			return fmt.Errorf("failed to mark OTP as used: %w", err)
+		}
+
+		newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash new password: %w", err)
+		}
+
+		_, err = s.UserRepo.UpdatePassword(ctx, user.ID, string(newPasswordHash))
+		if err != nil {
+			return fmt.Errorf("failed to update password: %w", err)
+		}
+
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
+
+		return nil
+	}
+
+	// identifier là userID (dùng cho change-password)
+	user, err = s.UserRepo.GetUserByID(ctx, identifier)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("user not found: %w", err)
 		}
-		return fmt.Errorf("failed to fetch user by email: %w", err)
+		return fmt.Errorf("failed to fetch user: %w", err)
 	}
 
-	otp, err := s.OTPRepo.VerifyOTP(ctx, user.ID, otpCode)
+	// Xác minh mật khẩu cũ
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPasswordOrOTP))
 	if err != nil {
-		return fmt.Errorf("invalid or expired OTP: %w", err)
+		return errors.New("invalid old password")
 	}
 
-	tx, err := s.UserRepo.DB().BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	_, err = s.OTPRepo.MarkOTPAsUsed(ctx, otp.ID)
-	if err != nil {
-		return fmt.Errorf("failed to mark OTP as used: %w", err)
-	}
-
+	// Hash mật khẩu mới
 	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("failed to hash new password: %w", err)
 	}
 
+	// Cập nhật mật khẩu mới
 	_, err = s.UserRepo.UpdatePassword(ctx, user.ID, string(newPasswordHash))
 	if err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
-	}
-
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -266,7 +295,7 @@ func (s *AuthService) UpdateAvatar(ctx context.Context, userID, avatarURL string
 	return user, nil
 }
 
-// Khôi phục phương thức GetAllUsers
+// GetAllUsers
 func (s *AuthService) GetAllUsers(ctx context.Context) ([]*model.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -278,14 +307,16 @@ func (s *AuthService) GetAllUsers(ctx context.Context) ([]*model.User, error) {
 
 	return users, nil
 }
+
 type ChangeUsernameResponse struct {
-    Message  string `json:"message"`
-    User     struct {
-        ID       string `json:"id"`
-        Username string `json:"username"`
-        Email    string `json:"email"`
-    } `json:"user"`
+	Message string `json:"message"`
+	User    struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	} `json:"user"`
 }
+
 func (s *AuthService) UpdateUsername(ctx context.Context, userID, username string) (*ChangeUsernameResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -310,46 +341,45 @@ func (s *AuthService) UpdateUsername(ctx context.Context, userID, username strin
 
 	return response, nil
 }
+
 func (s *AuthService) DeleteUser(ctx context.Context, userID string) error {
-    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-    // Bắt đầu giao dịch để đảm bảo tính toàn vẹn dữ liệu
-    tx, err := s.UserRepo.DB().BeginTx(ctx, nil)
-    if err != nil {
-        return fmt.Errorf("failed to start transaction: %w", err)
-    }
-    defer tx.Rollback()
+	tx, err := s.UserRepo.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
 
-    // Xóa refresh tokens của người dùng
-    err = s.UserRepo.DeleteRefreshToken(ctx, userID)
-    if err != nil {
-        fmt.Printf("Failed to delete refresh tokens for user %s: %v\n", userID, err)
-        // Tiếp tục dù lỗi này xảy ra (tùy yêu cầu)
-    }
+	// Xóa refresh tokens của người dùng
+	err = s.UserRepo.DeleteRefreshToken(ctx, userID)
+	if err != nil {
+		fmt.Printf("Failed to delete refresh tokens for user %s: %v\n", userID, err)
+		// Tiếp tục dù lỗi này xảy ra (tùy yêu cầu)
+	}
 
-    // Xóa OTPs của người dùng
-    err = s.OTPRepo.DeleteActiveOTPs(ctx, userID)
-    if err != nil {
-        fmt.Printf("Failed to delete active OTPs for user %s: %v\n", userID, err)
-        // Tiếp tục dù lỗi này xảy ra (tùy yêu cầu)
-    }
+	// Xóa OTPs của người dùng
+	err = s.OTPRepo.DeleteActiveOTPs(ctx, userID)
+	if err != nil {
+		fmt.Printf("Failed to delete active OTPs for user %s: %v\n", userID, err)
+		// Tiếp tục dù lỗi này xảy ra (tùy yêu cầu)
+	}
 
-    // Xóa người dùng
-    err = s.UserRepo.DeleteUser(ctx, userID)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            return errors.New("user not found")
-        }
-        return fmt.Errorf("failed to delete user: %w", err)
-    }
+	// Xóa người dùng
+	err = s.UserRepo.DeleteUser(ctx, userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("user not found")
+		}
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
 
-    // Commit giao dịch
-    if err = tx.Commit(); err != nil {
-        return fmt.Errorf("failed to commit transaction: %w", err)
-    }
+	// Commit giao dịch
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
 
-    fmt.Printf("User %s deleted successfully\n", userID)
-    return nil
+	fmt.Printf("User %s deleted successfully\n", userID)
+	return nil
 }
-
