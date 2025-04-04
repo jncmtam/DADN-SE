@@ -128,4 +128,47 @@ class APIs {
       throw Exception('Failed to reset password: $error');
     }
   }
+    static Future<void> addUser(String username, String email, String password, String role) async {
+    Uri url = Uri.parse('$baseUrl/admin/auth/register');
+    final response = await http.post(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+      body: jsonEncode(<String, String>{
+        'username': username,
+        'email': email,
+        'password': password,
+        'role': role
+      }),
+    );
+
+    if (response.statusCode == 201){
+      return;
+    }
+    else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to create user: $error');
+    }
+  }
+
+  static Future<List<User>> getAlluser() async {
+    Uri url = Uri.parse('$baseUrl/admin/users');
+    final response = await http.get(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+    if (response.statusCode == 200){
+      final List<dynamic> body = jsonDecode(response.body)['users'];
+      List<User> users = body.map((dynamic item) => User.fromJson(item)).toList();
+      return users;
+    }
+    else {
+    throw Exception('Failed to load users');
+  }
+  }
 }
