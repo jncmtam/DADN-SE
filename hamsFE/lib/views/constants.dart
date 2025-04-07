@@ -39,4 +39,4 @@ const Color popUp = Color(0xFFEBF4F6);
 // const Color activeTicket = Color(0xFFD7EAF8);
 // const Color inactiveTicket = Color(0xFF89A8B2);
 
-const apiUrl = 'http://192.168.254.170:8080/api';
+const apiUrl = 'http://localhost:8080/api';

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:hamsFE/controllers/session.dart';
+import 'package:hamsFE/models/cageinit.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/user.dart';
@@ -170,5 +171,45 @@ class APIs {
     else {
     throw Exception('Failed to load users');
   }
+  }
+
+  static Future<List<CageInit>> getUserCage(String userid) async {
+    Uri url = Uri.parse('$baseUrl/admin/users/$userid/cages');
+    final response = await http.get(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+    if (response.statusCode == 200){
+        final List<dynamic> body = jsonDecode(response.body);
+        List<CageInit> cages = body.map((dynamic item) => CageInit.fromJson(item as Map<String, dynamic>)).toList();
+        return cages;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to create cage: $error');
+    }
+  }
+
+  static Future<void> createCage (String cageName, String userid) async {
+    Uri url = Uri.parse('$baseUrl/admin/users/$userid/cages');
+    final response = await http.post(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+      body: jsonEncode(<String, String>{
+        'name_cage': cageName
+      }),
+    );
+    if (response.statusCode == 201){
+      return;
+    }
+    else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to create cage: $error');
+    }
   }
 }

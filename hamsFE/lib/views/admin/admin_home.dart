@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hamsFE/views/admin/admin_new_user.dart';
+import 'package:hamsFE/views/admin/admin_view_user.dart';
 import 'package:hamsFE/views/constants.dart';
 import '../../models/user.dart';
 import '../../controllers/apis.dart';
@@ -125,7 +126,13 @@ class _AdminHomeState extends State<AdminHome> {
                                       children: [
                                         IconButton(
                                             onPressed: () {
-
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => AdminViewUser(participant: users[index]),
+                                                ),
+                                              );
+                          
                                             },
                                             icon: Icon(Icons.edit, color: Colors.blue)),
                                         IconButton(

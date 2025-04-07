@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hamsFE/views/admin_app.dart';
+import 'package:hamsFE/views/admin/admin_app.dart';
 import 'package:hamsFE/views/login.dart';
 import 'package:hamsFE/views/user_app.dart';
 import 'controllers/session.dart';
