@@ -125,10 +125,7 @@ class AdminProfile extends StatelessWidget {
           title: Text(
             'Change Password',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: primaryText
-            ),
+                fontSize: 20, fontWeight: FontWeight.bold, color: lPrimaryText),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -169,14 +166,17 @@ class AdminProfile extends StatelessWidget {
                 String newPassword = newPasswdController.text;
 
                 try {
-                  bool success = await APIs.changePassword(currentPassword, newPassword);
+                  bool success =
+                      await APIs.changePassword(currentPassword, newPassword);
 
                   if (!context.mounted) return;
 
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(success ? 'Password changed successfully' : 'Failed to change password'),
+                      content: Text(success
+                          ? 'Password changed successfully'
+                          : 'Failed to change password'),
                       backgroundColor: success ? successStatus : failStatus,
                     ),
                   );

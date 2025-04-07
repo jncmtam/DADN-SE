@@ -36,7 +36,7 @@ class _AdminHomeState extends State<AdminHome> {
                 style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: primaryText),
+                    color: lPrimaryText),
               ),
             ],
           ),
