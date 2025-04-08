@@ -394,7 +394,7 @@
 
 ### 1. Get Cages for Logged-in User
 - **Method**: `GET`
-- **URL**: `/user/cages`
+- **URL**: `/cages`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Response**:
@@ -430,7 +430,7 @@
 
 ### 2. Get Cage Details for Logged-in User
 - **Method**: `GET`
-- **URL**: `/user/cages/:cageID`
+- **URL**: `/cages/:cageID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -442,19 +442,12 @@
     {
         "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
         "name": "Cage 1",
+        "status": "off", // on
         "devices": [
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
                 "name": "Fan 1",
                 "status": "off" // on / auto
-            }
-        ],
-        "sensors": [
-            {
-                "id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
-                "type": "temperature",
-                "value": 0,
-                "unit": "oC" 
             }
         ]
     }
@@ -486,7 +479,7 @@
 
 ### 3. Get Device Details for Logged-in User
 - **Method**: `GET`
-- **URL**: `/user/devices/:deviceID`
+- **URL**: `/devices/:deviceID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -549,7 +542,7 @@
 
 ### 4. Add Automation Rule for Device 
 - **Method**: `POST`
-- **URL**: `/user/devices/:deviceID/automations`
+- **URL**: `/devices/:deviceID/automations`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -607,7 +600,7 @@
 
 ### 5. Delete Automation Rule
 - **Method**: `DELETE`
-- **URL**: `/user/automations/:ruleID`
+- **URL**: `/automations/:ruleID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -647,7 +640,7 @@
 
 ### 6. Add Schedule Rule for Device 
 - **Method**: `POST`
-- **URL**: `/user/devices/:deviceID/schedules`
+- **URL**: `/devices/:deviceID/schedules`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -702,7 +695,7 @@
 
 ### 7. Delete Schedule Rule
 - **Method**: `DELETE`
-- **URL**: `/user/schedules/:ruleID`
+- **URL**: `/schedules/:ruleID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -730,7 +723,7 @@
   - `404 Not Found`: ruleID not found
     ```json
     {
-        "error": "Automation rule not found"
+        "error": "Schedule rule not found"
     }
     ```
   - `500 Internal Server Error`:

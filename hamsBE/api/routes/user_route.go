@@ -37,10 +37,10 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	scheduleService := service.NewScheduleService(scheduleRepo)
 
 
-	user := r.Group("/user")
-	user.Use(middleware.JWTMiddleware())
+	//user := r.Group("/user")
+	r.Use(middleware.JWTMiddleware())
 	{
-		user.GET("/:id", func(c *gin.Context) {
+		r.GET("/:id", func(c *gin.Context) {
 			id := c.Param("id")
 			user, err := userRepo.GetUserByID(c.Request.Context(), id)
 			if err != nil {
@@ -51,7 +51,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Lấy danh sách chuồng (cages) của user
-		user.GET("/cages", func(c *gin.Context) {
+		r.GET("/cages", func(c *gin.Context) {
 			userID, exists := c.Get("user_id")
 			if !exists {
 				log.Printf("[ERROR] user_id not found in context")
@@ -73,7 +73,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Gửi dữ liệu cảm biến có giá trị lấy ra từ redis
 
 		// Xem chi tiết một chuồng (a cage) của user
-		user.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+		r.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
 			cageID := c.Param("cageID")
 			
 			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
@@ -101,13 +101,14 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
+				"status": cage.Status,
 				//"sensors": sensors,
 				"devices": devices,
 			})
 		})
 
 		// Xem chi tiết một thiết bị (device) của user
-		user.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+		r.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			
 			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
@@ -141,7 +142,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm automation rule cho thiết bị
-		user.POST("/devices/:deviceID/automations", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+		r.POST("/devices/:deviceID/automations", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			
 			var req struct {
@@ -198,7 +199,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Xóa automation rule
-		user.DELETE("/automations/:ruleID", ownershipMiddleware(automationRepo, "ruleID"), func(c *gin.Context) {
+		r.DELETE("/automations/:ruleID", ownershipMiddleware(automationRepo, "ruleID"), func(c *gin.Context) {
 			ruleID := c.Param("ruleID")
 			
 			err := automationService.RemoveAutomationRule(c.Request.Context(), ruleID)
@@ -223,7 +224,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm API tạo schedule
-		user.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+		r.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			
 			var req struct {
@@ -278,7 +279,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm API xóa schedule
-		user.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
+		r.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
 			ruleID := c.Param("ruleID")
 			
 			err := scheduleService.RemoveScheduleRule(c.Request.Context(), ruleID)
