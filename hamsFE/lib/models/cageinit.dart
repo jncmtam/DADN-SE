@@ -1,27 +1,35 @@
 class CageInit {
-  final String id; // UUID
-  final String name; // Cage name
-  int numDevice; // Number of devices in the cage
-  String status; // Status of the cage ("on" or "off")
+  final String id;
+  final String name;
+  int numDevice;
+  String status;
 
   CageInit({
     required this.id,
     required this.name,
-    required this.numDevice,
-    required this.status,
+    this.numDevice = 0,
+    this.status = 'off',
   });
 
   // Factory constructor to create a CageInit object from JSON
   factory CageInit.fromJson(Map<String, dynamic> json) {
+    // For initial creation response that only includes id and name
+    if (json.containsKey('message')) {
+      return CageInit(
+        id: json['id'] as String,
+        name: json['name'] as String,
+      );
+    }
+    
+    // For regular cage data that includes all fields
     return CageInit(
       id: json['id'] as String,
       name: json['name'] as String,
-      numDevice: json['num_device'] as int,
-      status: json['status'] as String,
+      numDevice: json['num_device'] != null ? json['num_device'] as int : 0,
+      status: json['status'] ?? 'off',
     );
   }
 
-  // Method to convert a CageInit object to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -192,11 +192,11 @@ class APIs {
     }
   }
 
-  static Future<void> createCage (String cageName, String userid) async {
+  static Future<CageInit> createCage(String cageName, String userid) async {
     Uri url = Uri.parse('$baseUrl/admin/users/$userid/cages');
     final response = await http.post(
       url,
-      headers: <String,String> {
+      headers: <String, String>{
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${SessionManager().getJwt()}'
       },
@@ -204,10 +204,10 @@ class APIs {
         'name_cage': cageName
       }),
     );
-    if (response.statusCode == 201){
-      return;
-    }
-    else {
+    if (response.statusCode == 201) {
+      final Map<String, dynamic> res = jsonDecode(response.body);
+      return CageInit.fromJson(res); // Pass the response as CageInit
+    } else {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
       throw Exception('Failed to create cage: $error');
     }
