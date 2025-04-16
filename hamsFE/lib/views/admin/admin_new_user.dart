@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:hamsFE/models/user.dart';
 import 'package:hamsFE/views/constants.dart';
@@ -266,6 +265,8 @@ class _CreateUser extends State<AddUser> {
                                         backgroundColor: Colors.green,
                                       ),
                                     );
+                                    // Navigate back with result true to trigger reload
+                                    Navigator.pop(context, true);
                                   } catch (e) {
                                     // Handle error (e.g., show a snackbar)
                                     print('Error adding user: $e');

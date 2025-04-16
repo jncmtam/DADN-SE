@@ -42,13 +42,6 @@ class _AdminHomeState extends State<AdminHome> {
       });
     } catch (e) {
       // Handle error (e.g., show a snackbar)
-      print('Failed to load users: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load users: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
       setState(() {
         _isLoading = false; // Ensure loading is set to false even on error
       });
@@ -95,17 +88,20 @@ class _AdminHomeState extends State<AdminHome> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) => AddUser(user: user)));
+                            if (result == true) {
+                              _loadUsers(); // Reload users if result is true
+                            }
                           },
                           icon: Icon(Icons.add_circle, color: secondaryButtonContent),
-                          iconSize: 35, // Set the size of the icon
+                          iconSize: 35,
                           constraints: BoxConstraints(
-                            minWidth: 40, // Set the minimum width
-                            minHeight: 40, // Set the minimum height
+                            minWidth: 40,
+                            minHeight: 40,
                           ),
                         )
                       ],
@@ -125,18 +121,100 @@ class _AdminHomeState extends State<AdminHome> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         IconButton(
-                                            onPressed: () {
-                                              Navigator.push(
+                                            onPressed: () async {
+                                              final result = await Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
                                                   builder: (context) => AdminViewUser(participant: users[index]),
                                                 ),
                                               );
-                          
+                                              if (result == true) {
+                                                _loadUsers(); // Reload users if user was deleted
+                                              }
                                             },
                                             icon: Icon(Icons.edit, color: Colors.blue)),
                                         IconButton(
-                                            onPressed: () {},
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (BuildContext context) {
+                                                  return AlertDialog(
+                                                    backgroundColor: Color(0xFFF5D7A1),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(20),
+                                                    ),
+                                                    title: Center(
+                                                      child: Text(
+                                                        'Are you sure you want to\ndelete this user?',
+                                                        textAlign: TextAlign.center,
+                                                        style: TextStyle(
+                                                          fontSize: 18,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.black,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    actionsAlignment: MainAxisAlignment.center,
+                                                    actions: [
+                                                      ElevatedButton(
+                                                        onPressed: () {
+                                                          Navigator.of(context).pop();
+                                                          APIs.deleteUser(users[index].id).then((value) {
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              SnackBar(
+                                                                content: Text('User deleted successfully'),
+                                                                backgroundColor: Colors.green,
+                                                              ),
+                                                            );
+                                                            _loadUsers();
+                                                          }).catchError((error) {
+                                                            ScaffoldMessenger.of(context).showSnackBar(
+                                                              SnackBar(
+                                                                content: Text('Failed to delete user: $error'),
+                                                                backgroundColor: Colors.red,
+                                                              ),
+                                                            );
+                                                          });
+                                                        },
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: Color(0xFF2C5D51),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(10),
+                                                          ),
+                                                          padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                                                        ),
+                                                        child: Text(
+                                                          'Yes',
+                                                          style: TextStyle(
+                                                            fontSize: 16,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () {
+                                                          Navigator.of(context).pop();
+                                                        },
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: Color(0xFFB22222),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(10),
+                                                          ),
+                                                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                        ),
+                                                        child: Text(
+                                                          'Cancel',
+                                                          style: TextStyle(
+                                                            fontSize: 16,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
+                                              );
+                                            },
                                             icon: Icon(Icons.delete, color: primaryText))
                                       ],
                                     ),

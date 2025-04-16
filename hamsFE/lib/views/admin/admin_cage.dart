@@ -128,10 +128,12 @@ class _AdminCageState extends State<AdminCage> {
         );
       },
     ).then((value) {
-      // If dialog was dismissed or cancelled, pop back to previous screen
+      // Only pop back if the dialog was cancelled/dismissed
       if (value != true) {
-        Navigator.pop(context);
+        Navigator.pop(context, false);
       }
+      // If cage was added successfully, stay on this screen
+      // The cage has already been set in the state
     });
   }
 
@@ -145,7 +147,7 @@ class _AdminCageState extends State<AdminCage> {
         backgroundColor: kBase2,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: kBase0),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, true), // Return true to trigger reload
         ),
         title: Text(
           cage?.name ?? "Add Cage",

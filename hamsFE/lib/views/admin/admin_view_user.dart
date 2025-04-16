@@ -32,13 +32,6 @@ class _ViewUserState extends State<AdminViewUser> {
       });
     } catch (e) {
       // Handle error (e.g., show a snackbar)
-      print('Failed to load users: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$e'),
-          backgroundColor: Colors.red,
-        ),
-      );
       setState(() {
         _isLoading = false; // Ensure loading is set to false even on error
       });
@@ -125,8 +118,86 @@ class _ViewUserState extends State<AdminViewUser> {
                 SizedBox(height: 32),
                 // Delete Button
                 ElevatedButton(
-                  onPressed: () async {
-                    // Delete user logic
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          backgroundColor: Color(0xFFF5D7A1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          title: Center(
+                            child: Text(
+                              'Are you sure you want to\ndelete this user?',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                          actionsAlignment: MainAxisAlignment.center,
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                APIs.deleteUser(participant.id).then((value) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('User deleted successfully'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                  Navigator.pop(context, true); // Return to previous screen with reload flag
+                                }).catchError((error) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Failed to delete user: $error'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                });
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(0xFF2C5D51),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                              ),
+                              child: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Color(0xFFB22222),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.redAccent,
@@ -191,8 +262,8 @@ class _ViewUserState extends State<AdminViewUser> {
                                 color: kBase1,
                                 margin: EdgeInsets.symmetric(vertical: 4),
                                 child: InkWell(
-                                  onTap: () {
-                                    Navigator.push(
+                                  onTap: () async {
+                                    final result = await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => AdminCage(
@@ -201,6 +272,9 @@ class _ViewUserState extends State<AdminViewUser> {
                                         ),
                                       ),
                                     );
+                                    if (result == true) {
+                                      _loadcages(); // Reload cages if changes were made
+                                    }
                                   },
                                   child: ListTile(
                                     title: Text(

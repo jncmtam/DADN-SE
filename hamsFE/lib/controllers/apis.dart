@@ -164,13 +164,33 @@ class APIs {
       },
     );
     if (response.statusCode == 200){
-      final List<dynamic> body = jsonDecode(response.body)['users'];
-      List<User> users = body.map((dynamic item) => User.fromJson(item)).toList();
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final List<dynamic> usersData = responseData['users'];
+      List<User> users = usersData.map((dynamic item) => User.fromJson(item)).toList();
       return users;
     }
     else {
-    throw Exception('Failed to load users');
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to load users: $error');
+    }
   }
+
+  static Future<void> deleteUser(String userId) async {
+    Uri url = Uri.parse('$baseUrl/admin/users/$userId');
+    final response = await http.delete(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+    if (response.statusCode == 200){
+      return;
+    }
+    else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to delete user: $error');
+    }
   }
 
   static Future<List<CageInit>> getUserCage(String userid) async {
@@ -182,13 +202,16 @@ class APIs {
         'Authorization': 'Bearer ${SessionManager().getJwt()}'
       },
     );
-    if (response.statusCode == 200){
-        final List<dynamic> body = jsonDecode(response.body);
-        List<CageInit> cages = body.map((dynamic item) => CageInit.fromJson(item as Map<String, dynamic>)).toList();
-        return cages;
+    if (response.statusCode == 200) {
+      if (response.body.isEmpty) {
+        return []; // Return empty list if response body is empty
+      }
+      final List<dynamic> body = jsonDecode(response.body);
+      List<CageInit> cages = body.map((dynamic item) => CageInit.fromJson(item as Map<String, dynamic>)).toList();
+      return cages;
     } else {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-      throw Exception('Failed to create cage: $error');
+      throw Exception('Failed to load cages: $error');
     }
   }
 
