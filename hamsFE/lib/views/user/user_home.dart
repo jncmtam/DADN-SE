@@ -52,7 +52,7 @@ class _UserHomeState extends State<UserHome> {
     }
   }
 
-  Future<void> _toggleCage(String cageId, bool isEnabled) async {
+  Future<void> _toggleCageStatus(String cageId, bool isEnabled) async {
     try {
       if (isEnabled) {
         await APIs.disableCage(cageId);
@@ -126,7 +126,7 @@ class _UserHomeState extends State<UserHome> {
           children: [
             _buildGeneralInfo(),
             SizedBox(height: 20),
-            _buildCagesList(),
+            _buildCageList(),
           ],
         ),
       ),
@@ -151,7 +151,7 @@ class _UserHomeState extends State<UserHome> {
     );
   }
 
-  Widget _buildCagesList() {
+  Widget _buildCageList() {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,7 +188,7 @@ class _UserHomeState extends State<UserHome> {
                   trailing: Switch(
                     value: cage.isEnabled,
                     onChanged: (value) {
-                      _toggleCage(cage.id, cage.isEnabled);
+                      _toggleCageStatus(cage.id, cage.isEnabled);
                     },
                     activeColor: lOnMode,
                   ),

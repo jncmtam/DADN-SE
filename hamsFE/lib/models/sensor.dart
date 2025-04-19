@@ -31,12 +31,13 @@ class USensor {
       unit: json['unit'] ?? 'N/A',
     );
   }
-}
 
-// sample data stream from websocket
-// {
-//   'sensorId1': 'value',
-//   'sensorId2': 'value',
-// }
+  String getSensorName() {
+    // concat first 4 char of sensor type + last 3 digits of sensorId
+    final typeName = type.toString().split('.').last.substring(0, 4);
+    final idSuffix = id.substring(id.length - 3);
+    return '$typeName$idSuffix';
+  }
+}
 
 ////////// User Sensor Models //////////

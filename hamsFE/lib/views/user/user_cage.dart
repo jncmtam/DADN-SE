@@ -5,6 +5,7 @@ import 'package:hamsFE/controllers/apis.dart';
 import 'package:hamsFE/models/cage.dart';
 import 'package:hamsFE/models/device.dart';
 import 'package:hamsFE/views/constants.dart';
+import 'package:hamsFE/views/user/user_device.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:hamsFE/models/sensor.dart';
 
@@ -48,6 +49,29 @@ class _UserCageScreenState extends State<UserCageScreen> {
         _isLoading = false;
       });
 
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Something went wrong'),
+            backgroundColor: debugStatus,
+          ),
+        );
+      }
+
+      debugPrint(e.toString());
+    }
+  }
+
+  Future<void> _switchDeviceStatus(String deviceId, DeviceStatus status) async {
+    try {
+      await APIs.setDeviceStatus(deviceId, status);
+
+      // Update the device status in the UI
+      setState(() {
+        final device = _cage.devices.firstWhere((d) => d.id == deviceId);
+        device.status = status;
+      });
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -120,31 +144,33 @@ class _UserCageScreenState extends State<UserCageScreen> {
 
           return Padding(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Sensors Data (${_cage.sensors.length})',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: lSectionTitle,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sensors (${_cage.sensors.length})',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: lSectionTitle,
+                    ),
                   ),
-                ),
-                SizedBox(height: 10),
-                _buildSensorList(),
-                // SizedBox(height: 20),
-                Text(
-                  'Devices (${_cage.devices.length})',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: lSectionTitle,
+                  SizedBox(height: 10),
+                  _buildSensorList(),
+                  SizedBox(height: 20),
+                  Text(
+                    'Devices (${_cage.devices.length})',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: lSectionTitle,
+                    ),
                   ),
-                ),
-                SizedBox(height: 10),
-                _buildDeviceList(),
-              ],
+                  SizedBox(height: 10),
+                  _buildDeviceList(),
+                ],
+              ),
             ),
           );
         },
@@ -153,19 +179,14 @@ class _UserCageScreenState extends State<UserCageScreen> {
   }
 
   Widget _buildSensorList() {
-    return Expanded(
-      child: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 5,
-          mainAxisSpacing: 5,
-          childAspectRatio: 1.6,
-        ),
-        itemCount: _cage.sensors.length,
-        itemBuilder: (context, index) {
-          return _buildSensorCard(_cage.sensors[index]);
-        },
-      ),
+    return GridView.count(
+      physics: NeverScrollableScrollPhysics(), // disable internal scroll
+      shrinkWrap: true,
+      crossAxisCount: 2,
+      crossAxisSpacing: 5,
+      mainAxisSpacing: 5,
+      childAspectRatio: 1.6,
+      children: _cage.sensors.map(_buildSensorCard).toList(),
     );
   }
 
@@ -182,7 +203,7 @@ class _UserCageScreenState extends State<UserCageScreen> {
         themeIcon = Icon(Icons.water_drop, color: themeColor);
         break;
       case SensorType.light:
-        themeColor = Colors.orangeAccent;
+        themeColor = const Color.fromARGB(255, 218, 167, 0);
         themeIcon = Icon(Icons.wb_sunny, color: themeColor);
         break;
       case SensorType.water:
@@ -198,31 +219,34 @@ class _UserCageScreenState extends State<UserCageScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // icon and value
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Icon(
                   themeIcon.icon,
                   color: themeColor,
+                  size: 30,
                 ),
                 Text(
                   '${sensor.value}',
                   style: TextStyle(
-                    // fontSize: 16,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: themeColor,
                   ),
                 ),
               ],
             ),
+            // type and unit
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   sensor.type.toString().split('.').last,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  // style: TextStyle(
+                  //   fontWeight: FontWeight.bold,
+                  // ),
                 ),
                 Text(
                   sensor.unit,
@@ -239,34 +263,78 @@ class _UserCageScreenState extends State<UserCageScreen> {
   }
 
   Widget _buildDeviceList() {
-    return Expanded(
-      child: ListView.builder(
-        itemCount: _cage.devices.length,
-        itemBuilder: (context, index) {
-          return _buildDeviceCard(_cage.devices[index]);
-        },
-      ),
-    );
-  }
+    final List<String> options = ['Off', 'Auto', 'On'];
+    final List<Color> selectedColors = [lOffMode, lAutoMode, lOnMode];
 
-  Widget _buildDeviceCard(UDevice device) {
-    return Card(
-      color: lcardBackground,
-      child: ListTile(
-        title: Text(
-          device.name,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: lCardTitle,
+    return ListView.separated(
+      physics: NeverScrollableScrollPhysics(), // disable internal scroll
+      shrinkWrap: true,
+      separatorBuilder: (context, index) => SizedBox(height: 10),
+      itemCount: _cage.devices.length,
+      itemBuilder: (context, index) {
+        final device = _cage.devices[index];
+        return ListTile(
+          minTileHeight: 80,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ),
-        trailing: Icon(
-          device.status == DeviceStatus.on
-              ? Icons.power_settings_new
-              : Icons.power_off,
-          color: device.status == DeviceStatus.on ? successStatus : failStatus,
-        ),
-      ),
+          tileColor: lcardBackground,
+          title: Text(
+            device.name,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: lCardTitle,
+            ),
+          ),
+          trailing: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: ldisableBackground,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(options.length, (index) {
+                final isSelected = index == device.status.index;
+                return GestureDetector(
+                  onTap: () {
+                    _switchDeviceStatus(device.id, DeviceStatus.values[index]);
+                  },
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? selectedColors[index]
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Center(
+                      child: Text(
+                        options[index],
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isSelected ? lAppBarContent : lDisableText,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => UserDeviceScreen(
+                  deviceId: device.id,
+                  sensors: _cage.sensors,
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

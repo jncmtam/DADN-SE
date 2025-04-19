@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const apiUrl = 'http://192.168.254.170:8080/api';
+const apiUrl = 'http://172.17.105.234:8080/api';
 
 ////////////// COLORS ////////////////
 
@@ -30,9 +30,10 @@ const Color ldisableBackground = disableStatus;
 
 // text color
 // const Color placeholderText = Color.fromARGB(255, 167, 167, 167);
-const Color lPrimaryText = Color(0xFFA94A4A);
-const Color lSectionTitle = kBase5;
+const Color lPrimaryText = kBase2;
 const Color lSecondaryText = Color(0xFF895BB6);
+const Color lNormalText = Colors.black87;
+const Color lSectionTitle = kBase5;
 const Color lCardTitle = kBase2;
 const Color lDisableText = Color.fromARGB(255, 100, 100, 100);
 const Color lAppBarTitle = kBase3;
