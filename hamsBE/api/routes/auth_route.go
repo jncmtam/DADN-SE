@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"hamstercare/internal/repository"
-	"hamstercare/internal/service"
-	"hamstercare/internal/utils"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/repository"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/service"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/utils"
 	"log"
 	"net/http"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"hamstercare/internal/middleware"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"

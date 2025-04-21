@@ -1,15 +1,28 @@
-module hamstercare
+module dacnpm/be_mqtt/DADN-SE/hamsBE
 
 go 1.23.0
 
 require (
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/jackc/pgx/v4 v4.18.3
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 )
 
-require github.com/sendgrid/rest v2.6.9+incompatible // indirect
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
+	github.com/jackc/pgconn v1.14.3 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgtype v1.14.0 // indirect
+	github.com/sendgrid/rest v2.6.9+incompatible // indirect
+	golang.org/x/sync v0.12.0 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.12.6 // indirect

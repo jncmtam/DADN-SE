@@ -4,9 +4,9 @@ package routes
 import (
 	"database/sql"
 	"errors"
-	"hamstercare/internal/middleware"
-	"hamstercare/internal/repository"
-	"hamstercare/internal/service"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/middleware"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/repository"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/service"
 	"log"
 	"net/http"
 	"time"

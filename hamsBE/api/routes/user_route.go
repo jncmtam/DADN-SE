@@ -4,8 +4,8 @@ package routes
 import (
 	"database/sql"
 	"net/http"
-	"hamstercare/internal/middleware"
-	"hamstercare/internal/repository"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/middleware"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/repository"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,9 +1,10 @@
 package main
 
 import (
-	"hamstercare/api"
-	"hamstercare/internal/database"
-	"hamstercare/internal/database/queries"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/api"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/database"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/database/queries"
+	//"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/mqtt"
 	"log"
 	"os"
 	"time"
@@ -11,7 +12,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	
 )
+
 
 func main() {
 	err := godotenv.Load()
@@ -55,9 +58,13 @@ func main() {
 		log.Println("PORT not set, defaulting to 8080")
 	}
 
+	go mqtt.StartMQTTClientSub(db, "localhost:1883") 
+
+
 	api.SetupRoutes(r, db)
 	log.Printf("Starting server on port %s...", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+
 }

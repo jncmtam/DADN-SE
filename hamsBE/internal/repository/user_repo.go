@@ -4,8 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"hamstercare/internal/database/queries"
-	"hamstercare/internal/model"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/database/queries"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/model"
 	"time"
 )
 

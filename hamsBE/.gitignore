@@ -38,7 +38,3 @@ tmp/
 *.bak
 *.old
 
-# Files in development process
-internal/mqtt/mqtt.go
-internal/mqtt/handler.go
-internal/mqtt/client.go
