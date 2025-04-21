@@ -9,6 +9,7 @@
 #include <Ultrasonic.h>
 #include <Adafruit_NeoPixel.h>
 #include <IRremote.hpp>
+#include <ArduinoJson.h>
 
 #include "../../secrets.h"
 

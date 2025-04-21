@@ -125,21 +125,31 @@ void Task_read_sensor(void *pvParameters) {
     read_Ultrasonic();
     read_LightSensor();
     read_InfraredSensor();
-
-    send_mqtt(MQTT_TOPIC[4], temp);
-    send_mqtt(MQTT_TOPIC[2], hum);
-    send_mqtt(MQTT_TOPIC[7], distance);
-    send_mqtt(MQTT_TOPIC[5], light);
-    send_mqtt(MQTT_TOPIC[3], infrared);
+    
+    send_mqtt(MQTT_TOPIC[0], temp, "sensor", 1, "temperature");
+    send_mqtt(MQTT_TOPIC[1], hum, "sensor", 2, "huminity");
+    send_mqtt(MQTT_TOPIC[2], (float)light, "sensor", 3, "light");
+    send_mqtt(MQTT_TOPIC[3], (float)distance, "sensor", 4,"waterlevel");
+    send_mqtt(MQTT_TOPIC[4], (float))infrared, "sensor", 5, "infrared");
 
     write_LCD();
     vTaskDelay(30000 / portTICK_PERIOD_MS);
   }
 }
 
-void send_mqtt(const char *topic, float value) {
-  char buffer[10];
-  dtostrf(value, 4, 2, buffer);
+void send_mqtt(const char *topic, float value, const char *typename, int id, const char* dataname) {
+  StaticJsonDocument<192> doc;
+
+  doc["username"] = "user1";
+  doc["cagename"] = "cage1";
+  doc["type"] = typename;
+  doc["id"] = id;
+  doc["dataname"] = dataname;
+  doc["value"] = value;
+  doc["time"] = millis();
+
+  char buffer[192];
+  serializeJson(doc, buffer);
   client.publish(topic, buffer);
 }
 
