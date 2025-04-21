@@ -226,7 +226,22 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, cageID)
+			// Tự động set unit theo type
+			var unit string
+			switch req.Type {
+			case "temperature":
+				unit = "oC"
+			case "humidity":
+				unit = "%"
+			case "light":
+				unit = "lux"
+			case "distance":
+				unit = "cm"
+			default:
+				unit = "unknown"
+			}
+
+			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, unit, cageID)
 			if err != nil {
 				switch {
 					case errors.Is(err, service.ErrInvalidUUID): 

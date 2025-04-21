@@ -449,7 +449,14 @@
                 "name": "Fan 1",
                 "status": "off" // on / auto
             }
-        ]
+        ],
+        "sensors": [
+            {
+                "id": "27bd5a13-a77e-4a28-9741-a6a08a1094cd",
+                "type": "temperature",
+                "unit": "oC"
+            }
+        ],
     }
     ```
   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)

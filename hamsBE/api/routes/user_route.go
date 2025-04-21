@@ -27,8 +27,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	deviceRepo := repository.NewDeviceRepository(db)
 	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
 
-	//sensorRepo := repository.NewSensorRepository(db)
-	//sensorService := service.NewSensorService(sensorRepo, cageRepo)
+	sensorRepo := repository.NewSensorRepository(db)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
@@ -69,8 +69,21 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, cages)
 		})
 
-		// Thêm 1 API cho FE cập nhật value sensor 
-		// Gửi dữ liệu cảm biến có giá trị lấy ra từ redis
+		// Lấy danh sách sensor trong 1 cage
+		r.GET("/cages/:cageID/sensors", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			cageID := c.Param("cageID")
+			
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
+				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"sensors": sensors,
+			})
+		})
 
 		// Xem chi tiết một chuồng (a cage) của user
 		r.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
@@ -83,14 +96,13 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			// Lay gia trị cua sensor từ redis 
-
-			// sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
-			// if err != nil {
-			// 	log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
-			// 	c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
-			// 	return
-			// }
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
+				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("[ERROR] Error fetching devices for cage %s: %v", cageID, err.Error())
@@ -102,7 +114,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				"id": cage.ID,
 				"name": cage.Name,
 				"status": cage.Status,
-				//"sensors": sensors,
+				"sensors": sensors,
 				"devices": devices,
 			})
 		})
