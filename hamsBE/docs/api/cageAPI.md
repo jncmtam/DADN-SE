@@ -496,21 +496,22 @@
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
                 "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b", 
-                "condition": ">",
-                "threshold": 30,
-                "unit": "oC",
-                "action": "turn_on",
+                "sensor_type": "temperature",
+                "condition": ">", // > < =
+                "threshold": 30, // float
+                "unit": "oC", // % lux cm
+                "action": "turn_on", // turn_off refill
             }
         ],
         "schedule_rule": [
           {
               "id": "3d142e2a-8d48-4bc8-8ff1-eadf2a9211bf",
-              "execution_time": "0000-01-01T17:17:00Z",
+              "execution_time": "17:17",
               "days": [
-                  "Mon",
-                  "Tue"
-              ],
-              "action": "turn_on"
+                  "mon",
+                  "tue"
+              ], // sun, mon, tue, wed, thu, fri, sat
+              "action": "turn_on" //turn_off refill
           }
         ]
     }
@@ -553,7 +554,6 @@
       "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
       "condition": "<",
       "threshold": 30,
-      "unit": "°C",
       "action": "turn_on"
     }
 
@@ -649,7 +649,7 @@
   ```json
     {
         "execution_time": "17:17"
-        , "days": ["Mon", "Tue"]
+        , "days": ["mon", "tue"]
         , "action": "turn_on"
     }
   ```

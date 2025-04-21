@@ -149,7 +149,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				SensorID 	string `json:"sensor_id" binding:"required"`
 				Condition 	string `json:"condition" binding:"required"`
 				Threshold 	float64 `json:"threshold" binding:"required"`
-				Unit 		string `json:"unit" binding:"required"`
 				Action 		string `json:"action" binding:"required"`
 			}
 
@@ -159,16 +158,24 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			validConditions := map[string]bool{"<": true, ">": true, "=": true, ">=": true, "<=": true}
+			validConditions := map[string]bool{"<": true, ">": true, "=": true}
 			if !validConditions[req.Condition] {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid condition"})
 				return
 			}
 
-			validActions := map[string]bool{"turn_on": true, "turn_off": true}
+			validActions := map[string]bool{"turn_on": true, "turn_off": true, "refill": true}
 			if !validActions[req.Action] {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
 				return
+			}
+
+			if req.Action == "refill" {
+				if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
+					log.Printf("[ERROR] %v", err)
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
 			}
 
 			rule := &model.AutomationRule{
@@ -176,7 +183,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				DeviceID:  deviceID,
 				Condition: req.Condition,
 				Threshold: req.Threshold,
-				Unit:      req.Unit,
 				Action:    req.Action,
 			}
 			createRule, err := automationService.AddAutomationRule(c.Request.Context(), rule, cageService) 
@@ -230,7 +236,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			var req struct {
 				ExecutionTime 	string `json:"execution_time" binding:"required"`
 				Days 			[]string `json:"days" binding:"required"`
-				Action 			string `json:"action" binding:"required,oneof=turn_on turn_off"`
+				Action 			string `json:"action" binding:"required,oneof=turn_on turn_off refill"`
 			}
 
 			if err := c.ShouldBindJSON(&req); err != nil {
@@ -240,31 +246,40 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 
 			// Kiểm tra ExecutionTime có đúng định dạng HH:MM không
-			_, err := time.Parse("15:04", req.ExecutionTime)
-			if err != nil {
-				log.Printf("[ERROR] Invalid execution_time format: %v", err.Error())
+			parsedTime, parseErr := time.Parse("15:04", req.ExecutionTime)
+			if parseErr != nil {
+				log.Printf("[ERROR] Invalid execution_time format: %v", parseErr.Error())
 				c.JSON(http.StatusBadRequest, gin.H{"error": "execution_time must be in format HH:MM"})
 				return
 			}
-
+			
 			// Kiểm tra Days có giá trị hợp lệ không
 			validDays := map[string]bool{
-				"Mon": true, "Tue": true, "Wed": true, "Thu": true, "Fri": true, "Sat": true, "Sun": true,
+				"mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true,
 			}
 			for _, day := range req.Days {
 				if !validDays[day] {
 					log.Printf("[ERROR] Invalid day in schedule: %s", day)
-					c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: Mon, Tue, Wed, Thu, Fri, Sat, Sun"})
+					c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: mon, tue, wed, thu, fri, sat, sun"})
+					return
+				}
+			}
+
+			if req.Action == "refill" {
+				if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
+					log.Printf("[ERROR] %v", err)
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 					return
 				}
 			}
 
 			rule := &model.ScheduleRule{
-				ExecutionTime:  req.ExecutionTime,
+				ExecutionTime:  parsedTime.Format("15:04"), 
 				Days:  			req.Days,
 				DeviceID: 		deviceID,
 				Action: 		req.Action,
 			}
+
 			createSchedule, err := scheduleService.AddScheduleRule(c.Request.Context(), rule) 
 			if err != nil {
 				log.Printf("[ERROR] Failed to create schedule rule: %v", err.Error())

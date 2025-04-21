@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
@@ -111,4 +112,17 @@ func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (b
 
 func (r *DeviceRepository) IsExistsID(ctx context.Context, deviceID string) (bool, error) {
 	return r.DeviceExists(ctx, deviceID)
+}
+
+func (r *DeviceRepository) CheckType(ctx context.Context, deviceID string) (string, error) {
+	query, err := queries.GetQuery("check_device_type")
+	if err != nil {
+		return "", err
+	}
+	var deviceType string
+	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(&deviceType)
+	if err == sql.ErrNoRows {
+		return "", errors.New("device not found")
+	}
+	return deviceType, err
 }

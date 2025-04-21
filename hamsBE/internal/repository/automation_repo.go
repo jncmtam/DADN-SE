@@ -58,7 +58,7 @@ func (r *AutomationRepository) GetAutomationRulesByDeviceID(ctx context.Context,
 	var rules []*model.AutoRuleResByDeviceID
 	for rows.Next() {
 		rule := &model.AutoRuleResByDeviceID{}
-		err := rows.Scan(&rule.ID, &rule.SensorID, &rule.Condition, &rule.Threshold, &rule.Unit, &rule.Action)
+		err := rows.Scan(&rule.ID, &rule.SensorID, &rule.SensorType, &rule.Condition, &rule.Threshold, &rule.Unit, &rule.Action)
 		if err != nil {
 			return nil, err
 		}
