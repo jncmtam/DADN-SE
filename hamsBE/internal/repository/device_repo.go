@@ -61,6 +61,28 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
     return devices, nil
 }
 
+func (r *DeviceRepository) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
+	// Lấy query từ queries (hoặc bạn có thể viết trực tiếp query ở đây)
+	query := "SELECT id, name FROM devices WHERE cage_id IS NULL"
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []*model.DeviceListResponse
+	for rows.Next() {
+		device := &model.DeviceListResponse{}
+		if err := rows.Scan(&device.ID, &device.Name); err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
+
+	return devices, nil
+}
+
+
 func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (*model.DeviceResponse, error) {
 	query, err := queries.GetQuery("get_device_by_deviceID")
 	if err != nil {

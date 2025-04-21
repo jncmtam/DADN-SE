@@ -11,11 +11,11 @@ END $$;
 
 CREATE TABLE devices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL UNIQUE,
     type device_type NOT NULL,
     status device_status DEFAULT 'off' NOT NULL,
     last_status device_status,
-    cage_id UUID NOT NULL,
+    cage_id UUID,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cage_id) REFERENCES cages(id) ON DELETE CASCADE

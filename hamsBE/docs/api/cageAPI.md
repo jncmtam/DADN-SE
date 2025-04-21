@@ -389,6 +389,44 @@
     }
     ```
 
+### 9. Get List Available Devices
+- **Method**: `GET`
+- **URL**: `/admin/devices`
+- **Headers**:
+  - `Authorization: Bearer <token>`
+- **Response**:
+  - **200 OK**: 
+    ```json
+    [
+        {
+            "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
+            "name": "Fan 1"
+        },
+        {
+            "id": "5f74e3d1-a327-42d5-a5e2-d6b9b46d1f50",
+            "name": "Light 1"
+        }
+    ]
+    ```
+  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - **403 Forbidden**: Permission denied
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - **500 Internal Server Error**: 
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
 
 ## II. User Routes
 
@@ -734,6 +772,57 @@
     }
     ```
   - `500 Internal Server Error`:
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
+### 8. Get Sensors in a Cage
+- **Method**: `GET`
+- **URL**: `/cages/:cageID/sensors`
+- **Headers**:
+  - `Authorization: Bearer <token>`
+- **Parameters**:
+  - `cageID` (string, required): ID của chuồng cần lấy danh sách cảm biến.
+  
+- **Response**:
+  - **200 OK**: 
+    ```json
+    {
+        "sensors": [
+            {
+                "id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
+                "type": "temperature",
+                "unit": "°C"
+            },
+            {
+                "id": "9c1b5747-d97a-429e-9b0a-8b7be87901db",
+                "type": "humidity",
+                "unit": "%"
+            }
+        ]
+    }
+    ```
+  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - **403 Forbidden**: Permission denied (if the user does not have ownership of the cage)
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - **404 Not Found**: Cage not found or no sensors found
+    ```json
+    {
+      "error": "Sensors not found for the specified cage"
+    }
+    ```
+  - **500 Internal Server Error**: 
     ```json
     {
       "error": "Internal Server Error"

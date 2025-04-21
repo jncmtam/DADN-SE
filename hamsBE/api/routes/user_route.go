@@ -330,8 +330,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Bật / Tắt / Auto device
-		// Active/ Inactive cage
 	}
 }
 
