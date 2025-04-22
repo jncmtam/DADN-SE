@@ -5,7 +5,6 @@ CREATE TABLE schedule_rules (
     days TEXT[] NOT NULL,
     action TEXT NOT NULL CHECK (action IN ('turn_on', 'turn_off')),
     created_at TIMESTAMP DEFAULT NOW(),
-    
     -- CHECK CONSTRAINT: Kiểm tra tất cả giá trị trong days có hợp lệ không
     CONSTRAINT valid_days CHECK (
         days <@ ARRAY['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']

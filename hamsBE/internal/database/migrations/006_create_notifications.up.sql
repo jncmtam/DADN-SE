@@ -7,3 +7,4 @@ CREATE TABLE notifications (
 );
 
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+ALTER TABLE notifications ADD COLUMN is_read BOOLEAN DEFAULT FALSE;

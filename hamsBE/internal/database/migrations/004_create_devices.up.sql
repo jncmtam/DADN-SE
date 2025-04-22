@@ -21,3 +21,12 @@ CREATE TABLE devices (
     FOREIGN KEY (cage_id) REFERENCES cages(id) ON DELETE CASCADE
 );
 
+ALTER TABLE devices ADD CONSTRAINT valid_color_rgb CHECK (
+  color_rgb IS NULL OR (
+    jsonb_typeof(color_rgb) = 'object' AND
+    color_rgb ? 'r' AND color_rgb ? 'g' AND color_rgb ? 'b' AND
+    (color_rgb->>'r')::int BETWEEN 0 AND 255 AND
+    (color_rgb->>'g')::int BETWEEN 0 AND 255 AND
+    (color_rgb->>'b')::int BETWEEN 0 AND 255
+  )
+);

@@ -10,14 +10,14 @@ import (
 
 type AutomationService struct {
 	AutomationRepo *repository.AutomationRepository
+	CageRepo       *repository.CageRepository
 }
 
-func NewAutomationService(AutomationRepo *repository.AutomationRepository) *AutomationService {
-	return &AutomationService{AutomationRepo: AutomationRepo}
+func NewAutomationService(automationRepo *repository.AutomationRepository, cageRepo *repository.CageRepository) *AutomationService {
+	return &AutomationService{AutomationRepo: automationRepo, CageRepo: cageRepo}
 }
 
-
-func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.AutomationRule, cageService *CageService) (*model.AutomationRule, error) {
+func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.AutomationRule) (*model.AutomationRule, error) {
 	if rule == nil {
 		return nil, errors.New("automation rule is required")
 	}
@@ -26,22 +26,30 @@ func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.A
 		return nil, errors.New("all fields are required")
 	}
 
-	// Kiem tra sensorID cùng cage với deviceID
-	isSame, err := cageService.CageRepo.IsSameCage(ctx, rule.DeviceID, rule.SensorID)
-	if err != nil {
-		return nil, err
+	// Validate Condition and Action
+	validConditions := map[string]bool{">": true, "<": true, "=": true, ">=": true, "<=": true}
+	if !validConditions[rule.Condition] {
+		return nil, fmt.Errorf("invalid condition: %s", rule.Condition)
+	}
+	validActions := map[string]bool{"turn_on": true, "turn_off": true}
+	if !validActions[rule.Action] {
+		return nil, fmt.Errorf("invalid action: %s", rule.Action)
 	}
 
+	// Check if sensor and device are in the same cage
+	isSame, err := s.CageRepo.IsSameCage(ctx, rule.DeviceID, rule.SensorID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if sensor and device are in the same cage: %w", err)
+	}
 	if !isSame {
 		return nil, fmt.Errorf("%w: sensor %s and device %s", ErrDifferentCage, rule.SensorID, rule.DeviceID)
 	}
-	
-	rule, err = s.AutomationRepo.CreateAutomationRule(ctx, rule)
-	if err != nil {
-		return nil, err
-	}
 
-	return rule, nil
+	createdRule, err := s.AutomationRepo.CreateAutomationRule(ctx, rule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create automation rule: %w", err)
+	}
+	return createdRule, nil
 }
 
 func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID string) error {
@@ -49,11 +57,10 @@ func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID str
 		return errors.New("ruleID is required")
 	}
 
-	// Kiểm tra cageID hợp lệ
 	if err := IsValidUUID(ruleID); err != nil {
-		return err 
+		return err
 	}
-	
+
 	exists, err := s.AutomationRepo.RuleExists(ctx, ruleID)
 	if err != nil {
 		return fmt.Errorf("error checking automation rule existence: %w", err)
@@ -61,7 +68,7 @@ func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID str
 	if !exists {
 		return fmt.Errorf("%w: automation rule with ID %s does not exist", ErrRuleNotFound, ruleID)
 	}
-	
+
 	return s.AutomationRepo.DeleteAutomationRule(ctx, ruleID)
 }
 
@@ -72,9 +79,7 @@ func (s *AutomationService) GetRulesByDeviceID(ctx context.Context, deviceID str
 
 	rules, err := s.AutomationRepo.GetAutomationRulesByDeviceID(ctx, deviceID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get automation rules by deviceID: %w", err)
 	}
-
 	return rules, nil
 }
-

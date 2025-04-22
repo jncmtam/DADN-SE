@@ -4,6 +4,9 @@ import (
 	"hamstercare/api"
 	"hamstercare/internal/database"
 	"hamstercare/internal/database/queries"
+	"hamstercare/internal/mqtt"
+	"hamstercare/internal/repository"
+	"hamstercare/internal/websocket"
 	"log"
 	"os"
 	"time"
@@ -14,48 +17,67 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
 		log.Println("Can't find .env file, using default environment variables")
 	}
 
-	// Tải các truy vấn SQL
-    if err := queries.LoadQueries(); err != nil {
-        log.Fatal("Error loading queries:", err)
-    }
+	// Load SQL queries
+	if err := queries.LoadQueries(); err != nil {
+		log.Fatal("Error loading queries:", err)
+	}
 
+	// Connect to the database
 	db, err := database.ConnectDB()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer database.CloseDB(db)
 
+	// Initialize MQTT client
+	mqttClient := mqtt.Init(db)
+	_ = mqttClient 
+
+	// Create Gin router
 	r := gin.Default()
 
-	// Cấu hình CORS
+	// Setup CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8080","http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:8080", "http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	// Check xem server có đang chạy không
+
+	// WebSocket manager
+	userRepo := repository.NewUserRepository(db)
+	wsManager := websocket.NewNotificationManager(userRepo)
+	go wsManager.Run()
+
+	// Health check endpoint
 	r.GET("/", func(c *gin.Context) {
-		port := "8080"
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
 		c.JSON(200, gin.H{
 			"message": "Server is running on port " + port,
 		})
 	})
 
+	// Setup API routes
+	api.SetupRoutes(r, db)
+
+	// Get port from env
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 		log.Println("PORT not set, defaulting to 8080")
 	}
 
-	api.SetupRoutes(r, db)
+	// Start server
 	log.Printf("Starting server on port %s...", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

@@ -6,16 +6,16 @@ import (
 	"database/sql"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
+	"time"
 )
 
-type DeviceRepository struct{
+type DeviceRepository struct {
 	db *sql.DB
 }
 
 func NewDeviceRepository(db *sql.DB) *DeviceRepository {
 	return &DeviceRepository{db: db}
 }
-
 
 func (r *DeviceRepository) CreateDevice(ctx context.Context, name, deviceType, cageID string) (*model.Device, error) {
 	query, err := queries.GetQuery("create_device")
@@ -34,30 +34,29 @@ func (r *DeviceRepository) CreateDevice(ctx context.Context, name, deviceType, c
 	return device, nil
 }
 
-
 func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string) ([]*model.DeviceResponse, error) {
 	query, err := queries.GetQuery("get_devices_by_cageID")
 	if err != nil {
 		return nil, err
 	}
 	rows, err := r.db.QueryContext(ctx, query, cageID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var devices []*model.DeviceResponse
-    for rows.Next() {
-        device := &model.DeviceResponse{}
-        if err := rows.Scan(
-            &device.ID, &device.Name, &device.Status,
-        ); err != nil {
-            return nil, err
-        }
-        devices = append(devices, device)
-    }
+	var devices []*model.DeviceResponse
+	for rows.Next() {
+		device := &model.DeviceResponse{}
+		if err := rows.Scan(
+			&device.ID, &device.Name, &device.Status,
+		); err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
 
-    return devices, nil
+	return devices, nil
 }
 
 func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (*model.DeviceResponse, error) {
@@ -95,8 +94,8 @@ func (r *DeviceRepository) IsOwnedByUser(ctx context.Context, userID, deviceID s
 		return false, err
 	}
 	var count int
-    err = r.db.QueryRowContext(ctx, query, deviceID, userID).Scan(&count)
-    return count > 0, err
+	err = r.db.QueryRowContext(ctx, query, deviceID, userID).Scan(&count)
+	return count > 0, err
 }
 
 func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (bool, error) {
@@ -111,4 +110,18 @@ func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (b
 
 func (r *DeviceRepository) IsExistsID(ctx context.Context, deviceID string) (bool, error) {
 	return r.DeviceExists(ctx, deviceID)
+}
+
+// UpdateDeviceStatus updates the status of a device
+func (r *DeviceRepository) UpdateDeviceStatus(ctx context.Context, deviceID, status string) error {
+	query := `
+        UPDATE devices
+        SET status = $1, updated_at = $2
+        WHERE id = $3
+    `
+	_, err := r.db.ExecContext(ctx, query, status, time.Now(), deviceID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

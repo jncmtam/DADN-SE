@@ -18,3 +18,9 @@ type SensorResponse struct{
 	Value 		float64 	`json:"value"`
 	Unit 		string 		`json:"unit"`
 }
+type SensorData struct {
+    SensorID     string
+    Value        float64
+    Unit         string
+    ConditionMet string
+}

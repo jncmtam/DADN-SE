@@ -28,32 +28,28 @@ func LoadQueries() error {
             return err
         }
 
-        queries := strings.Split(string(content), ";")
-        for _, query := range queries {
-            query = strings.TrimSpace(query)
-            if query == "" {
+        blocks := strings.Split(string(content), "-- name:")
+        for _, block := range blocks {
+            block = strings.TrimSpace(block)
+            if block == "" {
                 continue
             }
 
-            lines := strings.Split(query, "\n")
-            var name string
-            for i, line := range lines {
-                line = strings.TrimSpace(line)
-                if strings.HasPrefix(line, "-- name:") {
-                    name = strings.TrimSpace(strings.TrimPrefix(line, "-- name:"))
-                    queries[i] = "" // Xóa dòng comment khỏi truy vấn
-                    break
-                }
-            }
-            if name == "" {
-                return fmt.Errorf("query in %s missing name", path)
+            lines := strings.SplitN(block, "\n", 2)
+            if len(lines) < 2 {
+                return fmt.Errorf("query in %s missing body", path)
             }
 
-            cleanedQuery := strings.TrimSpace(strings.Join(lines, "\n"))
-            if cleanedQuery != "" {
-                Queries[name] = cleanedQuery
+            name := strings.TrimSpace(lines[0])
+            body := strings.TrimSpace(lines[1])
+
+            if name == "" || body == "" {
+                return fmt.Errorf("query in %s missing name or body", path)
             }
+
+            Queries[name] = body
         }
+
         return nil
     })
     return err

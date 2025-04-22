@@ -90,3 +90,35 @@ func (r *AutomationRepository) RuleExists(ctx context.Context, ruleID string) (b
 func (r *AutomationRepository) IsExistsID(ctx context.Context, ruleID string) (bool, error) {
 	return r.RuleExists(ctx, ruleID)
 }
+func (r *AutomationRepository) GetRulesBySensorID(ctx context.Context, sensorID string) ([]*model.AutomationRule, error) {
+    query := `
+        SELECT id, sensor_id, device_id, condition, threshold, unit, action, created_at
+        FROM automation_rules
+        WHERE sensor_id = $1
+    `
+    rows, err := r.db.QueryContext(ctx, query, sensorID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var rules []*model.AutomationRule
+    for rows.Next() {
+        rule := &model.AutomationRule{}
+        err := rows.Scan(
+            &rule.ID,
+            &rule.SensorID,
+            &rule.DeviceID,
+            &rule.Condition,
+            &rule.Threshold,
+            &rule.Unit,
+            &rule.Action,
+            &rule.CreatedAt,
+        )
+        if err != nil {
+            return nil, err
+        }
+        rules = append(rules, rule)
+    }
+    return rules, nil
+}

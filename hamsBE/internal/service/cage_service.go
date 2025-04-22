@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
-	//"log"
-
 	"github.com/google/uuid"
 )
 
@@ -16,10 +14,9 @@ type CageService struct {
 	UserRepo *repository.UserRepository
 }
 
-func NewCageService(cageRepo *repository.CageRepository, UserRepo *repository.UserRepository) *CageService {
-	return &CageService{CageRepo: cageRepo, UserRepo: UserRepo}
+func NewCageService(cageRepo *repository.CageRepository, userRepo *repository.UserRepository) *CageService {
+	return &CageService{CageRepo: cageRepo, UserRepo: userRepo}
 }
-
 
 func (s *CageService) CreateCage(ctx context.Context, nameCage, userID string) (*model.Cage, error) {
 	if userID == "" || nameCage == "" {
@@ -27,7 +24,7 @@ func (s *CageService) CreateCage(ctx context.Context, nameCage, userID string) (
 	}
 
 	if err := IsValidUUID(userID); err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	exists, err := s.UserRepo.UserExists(ctx, userID)
@@ -40,9 +37,8 @@ func (s *CageService) CreateCage(ctx context.Context, nameCage, userID string) (
 
 	cage, err := s.CageRepo.CreateACageForID(ctx, nameCage, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create cage: %w", err)
 	}
-
 	return cage, nil
 }
 
@@ -52,7 +48,7 @@ func (s *CageService) GetCagesByUserID(ctx context.Context, userID string) ([]*m
 	}
 
 	if err := IsValidUUID(userID); err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	exists, err := s.UserRepo.UserExists(ctx, userID)
@@ -63,33 +59,22 @@ func (s *CageService) GetCagesByUserID(ctx context.Context, userID string) ([]*m
 		return nil, fmt.Errorf("%w: user with ID %s does not exist", ErrUserNotFound, userID)
 	}
 
-
 	cages, err := s.CageRepo.GetCagesByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get cages by userID: %w", err)
 	}
-
 	return cages, nil
 }
-
-var ErrUserNotFound = errors.New("user not found")
-var ErrCageNotFound = errors.New("cage not found")
-var ErrDeviceNotFound = errors.New("device not found")
-var ErrSensorNotFound = errors.New("sensor not found")
-var ErrRuleNotFound = errors.New("automation rule not found")
-var ErrDifferentCage = errors.New("sensor and device are not in the same cage")
-
 
 func (s *CageService) DeleteCage(ctx context.Context, cageID string) error {
 	if cageID == "" {
 		return errors.New("cageID is required")
 	}
 
-	// Kiểm tra cageID hợp lệ
 	if err := IsValidUUID(cageID); err != nil {
-		return err // Trả về ErrInvalidUUID 
+		return err
 	}
-	
+
 	exists, err := s.CageRepo.CageExists(ctx, cageID)
 	if err != nil {
 		return fmt.Errorf("error checking cage existence: %w", err)
@@ -107,9 +92,9 @@ func (s *CageService) GetACageByCageID(ctx context.Context, cageID string) (*mod
 	}
 
 	if err := IsValidUUID(cageID); err != nil {
-		return nil, err // Trả về ErrInvalidUUID 
+		return nil, err
 	}
-	
+
 	exists, err := s.CageRepo.CageExists(ctx, cageID)
 	if err != nil {
 		return nil, fmt.Errorf("error checking cage existence: %w", err)
@@ -120,30 +105,25 @@ func (s *CageService) GetACageByCageID(ctx context.Context, cageID string) (*mod
 
 	cage, err := s.CageRepo.GetACageByID(ctx, cageID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get cage by ID: %w", err)
 	}
-
 	return cage, nil
 }
 
+// Shared errors (consider moving to a shared package)
+var (
+	ErrUserNotFound   = errors.New("user not found")
+	ErrCageNotFound   = errors.New("cage not found")
+	ErrDeviceNotFound = errors.New("device not found")
+	ErrSensorNotFound = errors.New("sensor not found")
+	ErrRuleNotFound   = errors.New("rule not found")
+	ErrDifferentCage  = errors.New("sensor and device are not in the same cage")
+	ErrInvalidUUID    = errors.New("invalid UUID format")
+)
 
-// ErrInvalidUUID là lỗi chung khi ID không đúng định dạng UUID
-var ErrInvalidUUID = errors.New("invalid UUID format")
-
-// IsValidUUID kiểm tra xem một chuỗi có phải UUID hợp lệ hay không
 func IsValidUUID(id string) error {
 	if _, err := uuid.Parse(id); err != nil {
 		return ErrInvalidUUID
 	}
 	return nil
-}
-
-func (c *CageService) IsSameCage(ctx context.Context, deviceID, sensorID string) (bool, error) {
-     
-	isSame, err := c.CageRepo.IsSameCage(ctx, deviceID, sensorID)
-	if err != nil {
-		return false, fmt.Errorf("error checking cage existence: %w", err)
-	}
-
-	return isSame, nil
 }

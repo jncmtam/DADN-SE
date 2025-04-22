@@ -1,369 +1,523 @@
-// api/routes/user.go
 package routes
 
 import (
-	"context"
-	"database/sql"
 	"errors"
-	"fmt"
 	"hamstercare/internal/middleware"
 	"hamstercare/internal/model"
-	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
-	"time"
-
-	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
-	userRepo := repository.NewUserRepository(db)
-
-	cageRepo := repository.NewCageRepository(db)
-	cageService := service.NewCageService(cageRepo, userRepo)
-
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
-
-	//sensorRepo := repository.NewSensorRepository(db)
-	//sensorService := service.NewSensorService(sensorRepo, cageRepo)
-
-	automationRepo := repository.NewAutomationRepository(db)
-	automationService := service.NewAutomationService(automationRepo)
-
-	scheduleRepo := repository.NewScheduleRepository(db)
-	scheduleService := service.NewScheduleService(scheduleRepo)
-
-
-	user := r.Group("/user")
-	user.Use(middleware.JWTMiddleware())
+func SetupUserRoutes(r *gin.RouterGroup, cageService *service.CageService, sensorService *service.SensorService, deviceService *service.DeviceService, automationService *service.AutomationService, scheduleService *service.ScheduleService) {
+	users := r.Group("/users")
 	{
-		user.GET("/:id", func(c *gin.Context) {
-			id := c.Param("id")
-			user, err := userRepo.GetUserByID(c.Request.Context(), id)
-			if err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		// Create a cage for the authenticated user
+		users.POST("/:user_id/cages", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
 				return
 			}
-			c.JSON(http.StatusOK, user)
+
+			var req struct {
+				Name string `json:"name" binding:"required,max=100"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "code": "invalid_request"})
+				return
+			}
+
+			cage, err := cageService.CreateCage(c.Request.Context(), req.Name, userID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrUserNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "user_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create cage", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusCreated, cage)
 		})
 
-		// Lấy danh sách chuồng (cages) của user
-		user.GET("/cages", func(c *gin.Context) {
-			userID, exists := c.Get("user_id")
-			if !exists {
-				log.Printf("[ERROR] user_id not found in context")
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		// Get all cages for a user
+		users.GET("/:user_id/cages", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
 				return
 			}
-			
-			cages, err := cageService.GetCagesByUserID(c.Request.Context(), userID.(string))
+
+			cages, err := cageService.GetCagesByUserID(c.Request.Context(), userID)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching cages for user %s: %v", userID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				switch {
+				case errors.Is(err, service.ErrUserNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "user_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cages", "code": "internal_error"})
+				}
 				return
 			}
-		
+
 			c.JSON(http.StatusOK, cages)
 		})
 
-		// Thêm 1 API cho FE cập nhật value sensor 
-		// Gửi dữ liệu cảm biến có giá trị lấy ra từ redis
+		// Get a specific cage by ID
+		users.GET("/:user_id/cages/:cage_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			cageID := c.Param("cage_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
 
-		// Xem chi tiết một chuồng (a cage) của user
-		user.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
-			cageID := c.Param("cageID")
-			
 			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				switch {
+				case errors.Is(err, service.ErrCageNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "cage_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get cage", "code": "internal_error"})
+				}
 				return
 			}
 
-			// Lay gia trị cua sensor từ redis 
+			c.JSON(http.StatusOK, cage)
+		})
 
-			// sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
-			// if err != nil {
-			// 	log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
-			// 	c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
-			// 	return
-			// }
+		// Delete a cage
+		users.DELETE("/:user_id/cages/:cage_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			cageID := c.Param("cage_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			err := cageService.DeleteCage(c.Request.Context(), cageID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrCageNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "cage_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cage", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "Cage deleted successfully"})
+		})
+
+		// Add a sensor to a cage
+		users.POST("/:user_id/cages/:cage_id/sensors", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			cageID := c.Param("cage_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			var req struct {
+				Name       string `json:"name" binding:"required,max=100"`
+				SensorType string `json:"sensor_type" binding:"required,oneof=temperature humidity light distance"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "code": "invalid_request"})
+				return
+			}
+
+			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.SensorType, cageID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrCageNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "cage_not_found"})
+				case strings.Contains(err.Error(), "invalid sensorType"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_sensor_type"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add sensor", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusCreated, sensor)
+		})
+
+		// Get sensors for a cage
+		users.GET("/:user_id/cages/:cage_id/sensors", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			cageID := c.Param("cage_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get sensors", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusOK, sensors)
+		})
+
+		// Delete a sensor
+		users.DELETE("/:user_id/cages/:cage_id/sensors/:sensor_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			sensorID := c.Param("sensor_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			err := sensorService.DeleteSensor(c.Request.Context(), sensorID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrSensorNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "sensor_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete sensor", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "Sensor deleted successfully"})
+		})
+
+		// Add a device to a cage
+		users.POST("/:user_id/cages/:cage_id/devices", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			cageID := c.Param("cage_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			var req struct {
+				Name       string `json:"name" binding:"required,max=100"`
+				DeviceType string `json:"device_type" binding:"required,oneof=display lock light pump fan"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "code": "invalid_request"})
+				return
+			}
+
+			device, err := deviceService.CreateDevice(c.Request.Context(), req.Name, req.DeviceType, cageID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrCageNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "cage_not_found"})
+				case strings.Contains(err.Error(), "invalid deviceType"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_device_type"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add device", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusCreated, device)
+		})
+
+		// Get devices for a cage
+		users.GET("/:user_id/cages/:cage_id/devices", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			cageID := c.Param("cage_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching devices for cage %s: %v", cageID, err.Error())
-				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				switch {
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get devices", "code": "internal_error"})
+				}
 				return
 			}
 
-			c.JSON(http.StatusOK, gin.H{
-				"id": cage.ID,
-				"name": cage.Name,
-				//"sensors": sensors,
-				"devices": devices,
-			})
+			c.JSON(http.StatusOK, devices)
 		})
 
-		// Xem chi tiết một thiết bị (device) của user
-		user.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
-			deviceID := c.Param("deviceID")
-			
+		// Get a specific device
+		users.GET("/:user_id/cages/:cage_id/devices/:device_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			deviceID := c.Param("device_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
 			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				switch {
+				case errors.Is(err, service.ErrDeviceNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "device_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get device", "code": "internal_error"})
+				}
 				return
-			}  
+			}
 
-			automationRules, err := automationService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
-			if err != nil {
-				log.Printf("[ERROR] Error fetching automation rules for device %s: %v", deviceID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			} 
-
-			scheduleRules, err := scheduleService.GetRulesByDeviceID(c.Request.Context(), deviceID) 
-			if err != nil {
-				log.Printf("[ERROR] Error fetching schedule rules for device %s: %v", deviceID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			} 
-
-			c.JSON(http.StatusOK, gin.H{
-				"id": device.ID,
-				"name": device.Name,
-				"status": device.Status,
-				"automation_rule": automationRules,
-				"schedule_rule": scheduleRules,
-			})
+			c.JSON(http.StatusOK, device)
 		})
 
-		// Thêm automation rule cho thiết bị
-		user.POST("/devices/:deviceID/automations", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
-			deviceID := c.Param("deviceID")
-			
+		// Delete a device
+		users.DELETE("/:user_id/cages/:cage_id/devices/:device_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			deviceID := c.Param("device_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			err := deviceService.DeleteDevice(c.Request.Context(), deviceID)
+			if err != nil {
+				switch {
+				case errors.Is(err, service.ErrDeviceNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "device_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete device", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "Device deleted successfully"})
+		})
+
+		// Add an automation rule
+		users.POST("/:user_id/cages/:cage_id/automation", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
 			var req struct {
-				SensorID 	string `json:"sensor_id" binding:"required"`
-				Condition 	string `json:"condition" binding:"required"`
-				Threshold 	float64 `json:"threshold" binding:"required"`
-				Unit 		string `json:"unit" binding:"required"`
-				Action 		string `json:"action" binding:"required"`
+				SensorID  string  `json:"sensor_id" binding:"required"`
+				DeviceID  string  `json:"device_id" binding:"required"`
+				Condition string  `json:"condition" binding:"required,oneof=> < = >= <="`
+				Threshold float64 `json:"threshold" binding:"required,gt=0"`
+				Unit      string  `json:"unit" binding:"required"`
+				Action    string  `json:"action" binding:"required,oneof=turn_on turn_off"`
 			}
-
 			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("[ERROR] Invalid request body: %v", err.Error())
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-				return
-			}
-
-			validConditions := map[string]bool{"<": true, ">": true, "=": true, ">=": true, "<=": true}
-			if !validConditions[req.Condition] {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid condition"})
-				return
-			}
-
-			validActions := map[string]bool{"turn_on": true, "turn_off": true}
-			if !validActions[req.Action] {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "code": "invalid_request"})
 				return
 			}
 
 			rule := &model.AutomationRule{
 				SensorID:  req.SensorID,
-				DeviceID:  deviceID,
+				DeviceID:  req.DeviceID,
 				Condition: req.Condition,
 				Threshold: req.Threshold,
 				Unit:      req.Unit,
 				Action:    req.Action,
 			}
-			createRule, err := automationService.AddAutomationRule(c.Request.Context(), rule, cageService) 
+
+			createdRule, err := automationService.AddAutomationRule(c.Request.Context(), rule)
 			if err != nil {
 				switch {
-					case errors.Is(err, service.ErrDifferentCage): 
-						log.Printf("[ERROR]  Sensor [%s] and device [%s] are not in the same cage.", req.SensorID, deviceID)
-						c.JSON(http.StatusBadRequest, gin.H{"error": " Sensor and device are not in the same cage."})
-					default:
-						log.Printf("[ERROR] Failed to create automation rule: %v", err.Error())
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-					}
-					return
+				case strings.Contains(err.Error(), "all fields are required") || err.Error() == "automation rule is required":
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "missing_fields"})
+				case strings.Contains(err.Error(), "invalid condition"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_condition"})
+				case strings.Contains(err.Error(), "invalid action"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_action"})
+				case errors.Is(err, service.ErrDifferentCage):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "different_cage"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add automation rule", "code": "internal_error"})
+				}
+				return
 			}
 
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Automation rule created successfully",
-				"id": createRule.ID,
-			})
+			c.JSON(http.StatusCreated, createdRule)
 		})
 
-		// Xóa automation rule
-		user.DELETE("/automations/:ruleID", ownershipMiddleware(automationRepo, "ruleID"), func(c *gin.Context) {
-			ruleID := c.Param("ruleID")
-			
+		// Get automation rules for a device
+		users.GET("/:user_id/cages/:cage_id/devices/:device_id/automation", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			deviceID := c.Param("device_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			rules, err := automationService.GetRulesByDeviceID(c.Request.Context(), deviceID)
+			if err != nil {
+				switch {
+				case strings.Contains(err.Error(), "deviceID is required"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "missing_device_id"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get automation rules", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusOK, rules)
+		})
+
+		// Delete an automation rule
+		users.DELETE("/:user_id/cages/:cage_id/automation/:rule_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			ruleID := c.Param("rule_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
 			err := automationService.RemoveAutomationRule(c.Request.Context(), ruleID)
 			if err != nil {
 				switch {
-					case errors.Is(err, service.ErrInvalidUUID): 
-						log.Printf("[ERROR] Invalid UUID format for ruleID: %s", ruleID)
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-					case errors.Is(err, service.ErrRuleNotFound):
-						log.Printf("[ERROR] Automation rule not found: %s", ruleID)
-						c.JSON(http.StatusNotFound, gin.H{"error": "Automation rule not found"})
-					default:
-						log.Printf("[ERROR] Failed to delete automation rule %s: %v", ruleID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-					}
-					return
+				case errors.Is(err, service.ErrRuleNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "rule_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete automation rule", "code": "internal_error"})
+				}
+				return
 			}
-			
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Automation rule deleted successfully",
-			})
+
+			c.JSON(http.StatusOK, gin.H{"message": "Automation rule deleted successfully"})
 		})
 
-		// Thêm API tạo schedule
-		user.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
-			deviceID := c.Param("deviceID")
-			
+		// Add a schedule rule
+		users.POST("/:user_id/cages/:cage_id/schedule", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
 			var req struct {
-				ExecutionTime 	string `json:"execution_time" binding:"required"`
-				Days 			[]string `json:"days" binding:"required"`
-				Action 			string `json:"action" binding:"required,oneof=turn_on turn_off"`
+				DeviceID      string   `json:"device_id" binding:"required"`
+				ExecutionTime string   `json:"execution_time" binding:"required"`
+				Days          []string `json:"days" binding:"required,dive,oneof=Mon Tue Wed Thu Fri Sat Sun"`
+				Action        string   `json:"action" binding:"required,oneof=turn_on turn_off"`
 			}
-
 			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("[ERROR] Invalid request body: %v", err.Error())
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "code": "invalid_request"})
 				return
-			}
-
-			// Kiểm tra ExecutionTime có đúng định dạng HH:MM không
-			_, err := time.Parse("15:04", req.ExecutionTime)
-			if err != nil {
-				log.Printf("[ERROR] Invalid execution_time format: %v", err.Error())
-				c.JSON(http.StatusBadRequest, gin.H{"error": "execution_time must be in format HH:MM"})
-				return
-			}
-
-			// Kiểm tra Days có giá trị hợp lệ không
-			validDays := map[string]bool{
-				"Mon": true, "Tue": true, "Wed": true, "Thu": true, "Fri": true, "Sat": true, "Sun": true,
-			}
-			for _, day := range req.Days {
-				if !validDays[day] {
-					log.Printf("[ERROR] Invalid day in schedule: %s", day)
-					c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: Mon, Tue, Wed, Thu, Fri, Sat, Sun"})
-					return
-				}
 			}
 
 			rule := &model.ScheduleRule{
-				ExecutionTime:  req.ExecutionTime,
-				Days:  			req.Days,
-				DeviceID: 		deviceID,
-				Action: 		req.Action,
+				DeviceID:      req.DeviceID,
+				ExecutionTime: req.ExecutionTime,
+				Days:          req.Days,
+				Action:        req.Action,
 			}
-			createSchedule, err := scheduleService.AddScheduleRule(c.Request.Context(), rule) 
-			if err != nil {
-				log.Printf("[ERROR] Failed to create schedule rule: %v", err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			} 
 
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Schedule rule created successfully",
-				"id": createSchedule.ID,
-			})
+			createdRule, err := scheduleService.AddScheduleRule(c.Request.Context(), rule)
+			if err != nil {
+				switch {
+				case strings.Contains(err.Error(), "all fields are required") || err.Error() == "schedule rule is required":
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "missing_fields"})
+				case strings.Contains(err.Error(), "invalid day"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_day"})
+				case strings.Contains(err.Error(), "invalid action"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_action"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add schedule rule", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusCreated, createdRule)
 		})
 
-		// Thêm API xóa schedule
-		user.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
-			ruleID := c.Param("ruleID")
-			
+		// Get schedule rules for a device
+		users.GET("/:user_id/cages/:cage_id/devices/:device_id/schedule", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			deviceID := c.Param("device_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
+			rules, err := scheduleService.GetRulesByDeviceID(c.Request.Context(), deviceID)
+			if err != nil {
+				switch {
+				case strings.Contains(err.Error(), "deviceID is required"):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "missing_device_id"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get schedule rules", "code": "internal_error"})
+				}
+				return
+			}
+
+			c.JSON(http.StatusOK, rules)
+		})
+
+		// Delete a schedule rule
+		users.DELETE("/:user_id/cages/:cage_id/schedule/:rule_id", middleware.JWTMiddleware(), func(c *gin.Context) {
+			userID := c.Param("user_id")
+			ruleID := c.Param("rule_id")
+			currentUserID := c.GetString("user_id")
+			if userID != currentUserID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized access", "code": "unauthorized"})
+				return
+			}
+
 			err := scheduleService.RemoveScheduleRule(c.Request.Context(), ruleID)
 			if err != nil {
 				switch {
-					case errors.Is(err, service.ErrInvalidUUID): 
-						log.Printf("[ERROR] Invalid UUID format for ruleID: %s", ruleID)
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-					case errors.Is(err, service.ErrRuleNotFound):
-						log.Printf("[ERROR] Schedule rule not found: %s", ruleID)
-						c.JSON(http.StatusNotFound, gin.H{"error": "Schedule rule not found"})
-					default:
-						log.Printf("[ERROR] Failed to delete schedule rule %s: %v", ruleID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-					}
-					return
+				case errors.Is(err, service.ErrRuleNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": err.Error(), "code": "rule_not_found"})
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error(), "code": "invalid_uuid"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete schedule rule", "code": "internal_error"})
+				}
+				return
 			}
-			
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Schedule rule deleted successfully",
-			})
+
+			c.JSON(http.StatusOK, gin.H{"message": "Schedule rule deleted successfully"})
 		})
-
-		// Bật / Tắt / Auto device
-		// Active/ Inactive cage
 	}
-}
-
-
-
-
-// OwnershipChecker định nghĩa interface kiểm tra quyền sở hữu
-type ownershipChecker interface {
-    IsOwnedByUser(ctx context.Context, userID, entityID string) (bool, error)
-	IsExistsID(ctx context.Context, entityID string) (bool, error) 
-}
-
-// ownershipMiddleware kiểm tra quyền sở hữu của user đối với thực thể (cage, device, automation_rule)
-func ownershipMiddleware(repo ownershipChecker, paramName string) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        userID, exists := c.Get("user_id")
-        if !exists {
-            log.Println("[ERROR] Missing userID in context")
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-            c.Abort()
-            return
-        }
-
-        entityID := c.Param(paramName)
-		if err := service.IsValidUUID(entityID); err != nil {
-			log.Printf("[ERROR] Invalid UUID format for %s: %s", paramName, entityID)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-			c.Abort()
-			return 
-		}
-
-		entityExists, err := repo.IsExistsID(c.Request.Context(), entityID)
-		if err != nil {
-			log.Printf("[ERROR] Error checking existence of %s: %v", paramName, err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-            c.Abort()
-            return
-		}
-		if !entityExists {
-			log.Printf("[ERROR] %s not found: %s", paramName, entityID)
-            c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("%s not found", paramName)})
-            c.Abort()
-            return
-		}
-
-        owned, err := repo.IsOwnedByUser(c.Request.Context(), userID.(string), entityID)
-        if err != nil {
-            log.Printf("[ERROR] Error checking ownership of %s %s: %v", paramName, entityID, err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-            c.Abort()
-            return
-        }
-
-        if !owned {
-            log.Printf("[ERROR] Unauthorized access: User %s does not own %s %s", userID.(string), paramName, entityID)
-            c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
-            c.Abort()
-            return
-        }
-
-        c.Next()
-    }
 }
