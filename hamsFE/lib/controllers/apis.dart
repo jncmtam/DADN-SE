@@ -1,8 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:hamsFE/controllers/session.dart';
+import 'package:hamsFE/models/cage.dart';
+import 'package:hamsFE/models/device.dart';
+import 'package:hamsFE/models/rule.dart';
+import 'package:hamsFE/models/sensor.dart';
+import 'package:hamsFE/views/sample_data.dart';
 import 'package:hamsFE/models/cageinit.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/user.dart';
 import '../views/constants.dart';
@@ -10,6 +16,7 @@ import '../views/constants.dart';
 class APIs {
   static const String baseUrl = apiUrl;
 
+  // Auth APIs
   static Future<bool> login(String email, String password) async {
     Uri url = Uri.parse('$baseUrl/auth/login');
 
@@ -40,7 +47,6 @@ class APIs {
     await SessionManager().logout();
   }
 
-  // get user information
   static Future<User> getUserInfo() async {
     final userId = SessionManager().getUserId();
     Uri url = Uri.parse('$baseUrl/user/$userId');
@@ -61,7 +67,8 @@ class APIs {
     }
   }
 
-  static Future<bool> changePassword(String currentPassword, String newPassword) async {
+  static Future<bool> changePassword(
+      String currentPassword, String newPassword) async {
     Uri url = Uri.parse('$baseUrl/auth/change-password');
 
     final response = await http.post(
@@ -107,7 +114,8 @@ class APIs {
     }
   }
 
-  static Future<void> resetPassword(String email, String otp, String newPasswd) async {
+  static Future<void> resetPassword(
+      String email, String otp, String newPasswd) async {
     Uri url = Uri.parse('$baseUrl/auth/reset-password');
 
     final response = await http.post(

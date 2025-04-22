@@ -88,18 +88,23 @@ class _AdminAppState extends State<AdminApp> {
                 borderRadius: BorderRadius.circular(25),
                 child: BottomNavigationBar(
                   currentIndex: _selectedIndex,
-                  selectedItemColor: selectedItem,
-                  unselectedItemColor: unselectedItem,
+                  selectedItemColor: selectedTab,
+                  unselectedItemColor: unselectedTab,
                   backgroundColor: kBase2,
                   onTap: _onItemTapped,
                   type: BottomNavigationBarType.fixed,
                   showUnselectedLabels: false,
                   showSelectedLabels: false,
                   items: [
-                    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                    BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
-                    BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifications'),
-                    BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+                    BottomNavigationBarItem(
+                        icon: Icon(Icons.home), label: 'Home'),
+                    BottomNavigationBarItem(
+                        icon: Icon(Icons.bar_chart), label: 'Statistics'),
+                    BottomNavigationBarItem(
+                        icon: Icon(Icons.notifications),
+                        label: 'Notifications'),
+                    BottomNavigationBarItem(
+                        icon: Icon(Icons.person), label: 'Profile'),
                   ],
                 ),
               ),
