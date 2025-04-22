@@ -137,6 +137,171 @@ class APIs {
       throw Exception('Failed to reset password: $error');
     }
   }
+    static Future<UDetailedCage> getCageDetails(String cageId) async {
+    return sampleDetailedCage;
+
+    // Uri url = Uri.parse('$baseUrl/user/cages/$cageId');
+
+    // final response = await http.get(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return UDetailedCage.fromJson(jsonDecode(response.body));
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to get cage details: $error');
+    // }
+  }
+
+  // Sensor Data APIs
+  static WebSocketChannel getCageSensorData(String cageId) {
+    return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
+
+    // final token = SessionManager().getJwt();
+    // final url =
+    //     Uri.parse('$baseUrl/user/cages/$cageId/sensor-data?token=$token');
+    // return WebSocketChannel.connect(url);
+  }
+
+  // Device APIs
+  static Future<void> setDeviceStatus(
+      String deviceId, DeviceStatus status) async {
+    return;
+  }
+
+  static Future<UDetailedDevice> getDeviceDetails(String deviceId) async {
+    return sampleDetailedDevice;
+
+    // Uri url = Uri.parse('$baseUrl/user/devices/$deviceId');
+
+    // final response = await http.get(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return UDetailedDevice.fromJson(jsonDecode(response.body));
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to get device details: $error');
+    // }
+  }
+
+  // get sensor list of a cage for display dropdown
+  static Future<List<USensor>> getCageSensors(String cageId) async {
+    return sampleSensors;
+
+    // Uri url = Uri.parse('$baseUrl/user/cages/$cageId/sensors');
+
+    // final response = await http.get(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   List<dynamic> sensors = jsonDecode(response.body);
+    //   return sensors.map((sensor) => USensor.fromJson(sensor)).toList();
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to get sensors: $error');
+    // }
+  }
+
+  // Automation rules APIs
+  static Future<void> addConditionalRule(
+      String deviceId, ConditionalRule rule) async {
+    return;
+    // Uri url = Uri.parse('$baseUrl/user/devices/$deviceId/automations');
+
+    // final response = await http.post(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    //   body: jsonEncode(rule.toJson()),
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return;
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to add conditional rule: $error');
+    // }
+  }
+
+  static Future<void> deleteConditionalRule(String ruleId) async {
+    return;
+    // Uri url = Uri.parse('$baseUrl/user/automations/$ruleId');
+
+    // final response = await http.delete(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return;
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to delete conditional rule: $error');
+    // }
+  }
+
+  static Future<void> addScheduledRule(
+      String deviceId, ScheduledRule rule) async {
+    return;
+    // Uri url = Uri.parse('$baseUrl/user/devices/$deviceId/schedules');
+
+    // final response = await http.post(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    //   body: jsonEncode(rule.toJson()),
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return;
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to add scheduled rule: $error');
+    // }
+  }
+
+  static Future<void> deleteScheduledRule(String ruleId) async {
+    return;
+    // Uri url = Uri.parse('$baseUrl/user/schedules/$ruleId');
+
+    // final response = await http.delete(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return;
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to delete scheduled rule: $error');
+    // }
+  }
     static Future<void> addUser(String username, String email, String password, String role) async {
     Uri url = Uri.parse('$baseUrl/admin/auth/register');
     final response = await http.post(
@@ -244,7 +409,7 @@ class APIs {
     }
   }
 
-  static Future<CageInit> getCageDetails(String cageId) async {
+  static Future<CageInit> adminGetCageDetails(String cageId) async {
     Uri url = Uri.parse('$baseUrl/admin/cages/$cageId');
     final response = await http.get(
       url,
@@ -261,6 +426,56 @@ class APIs {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
       throw Exception('Failed to get cage details: $error');
     }
+  }
+
+  // Cage APIs
+  static Future<int> getUserActiveDevices() async {
+    return sampleActiveDeviceCount;
+
+    // Uri url = Uri.parse('$baseUrl/user/active-device-count');
+
+    // final response = await http.get(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   return jsonDecode(response.body)['active_device_count'];
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to get active device count: $error');
+    // }
+  }
+    static Future<List<UCage>> getUserCages() async {
+    return sampleCages;
+
+    // Uri url = Uri.parse('$baseUrl/user/cages');
+
+    // final response = await http.get(
+    //   url,
+    //   headers: <String, String>{
+    //     'Content-Type': 'application/json',
+    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
+    //   },
+    // );
+
+    // if (response.statusCode == 200) {
+    //   List<dynamic> cages = jsonDecode(response.body);
+    //   return cages.map((cage) => UCage.fromJson(cage)).toList();
+    // } else {
+    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+    //   throw Exception('Failed to get cages: $error');
+    // }
+  }
+  static Future<void> enableCage(String cageId) async {
+    return;
+  }
+
+  static Future<void> disableCage(String cageId) async {
+    return;
   }
 
   static Future<Map<String, dynamic>> addDeviceToCage(String cageId, String name, String type) async {

@@ -82,7 +82,7 @@ class _AdminHomeState extends State<AdminHome> {
                         Text(
                           'Users',
                           style: TextStyle(
-                            color: primaryText,
+                            color: lSectionTitle,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
@@ -116,7 +116,7 @@ class _AdminHomeState extends State<AdminHome> {
                                   color: kBase1,
                                   margin: EdgeInsets.symmetric(vertical: 4),
                                   child: ListTile(
-                                    title: Text(users[index].name, style: TextStyle(fontWeight: FontWeight.bold, color: primaryText),),  // Display the user's username
+                                    title: Text(users[index].name, style: TextStyle(fontWeight: FontWeight.bold, color: lSectionTitle),),  // Display the user's username
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -215,7 +215,7 @@ class _AdminHomeState extends State<AdminHome> {
                                                 },
                                               );
                                             },
-                                            icon: Icon(Icons.delete, color: primaryText))
+                                            icon: Icon(Icons.delete, color: lSectionTitle))
                                       ],
                                     ),
                                   ),

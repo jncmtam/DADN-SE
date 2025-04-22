@@ -220,7 +220,7 @@ class _ViewUserState extends State<AdminViewUser> {
                     Text(
                       'Cages(${cages.length})',
                       style: TextStyle(
-                        color: primaryText,
+                        color: lSectionTitle,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -279,7 +279,7 @@ class _ViewUserState extends State<AdminViewUser> {
                                       cages[index].name,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: primaryText,
+                                        color: lSectionTitle,
                                       ),
                                     ),
                                     trailing: Row(

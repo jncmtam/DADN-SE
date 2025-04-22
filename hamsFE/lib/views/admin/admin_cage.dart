@@ -3,6 +3,7 @@ import 'package:hamsFE/models/cageinit.dart';
 import 'package:hamsFE/views/constants.dart';
 import '../../controllers/apis.dart';
 
+
 class AdminCage extends StatefulWidget {
   final CageInit? cageInit;
   final String userId;
@@ -35,7 +36,7 @@ class _AdminCageState extends State<AdminCage> {
     if (cage == null) return;
     
     try {
-      final details = await APIs.getCageDetails(cage!.id);
+      final details = await APIs.adminGetCageDetails(cage!.id);
       setState(() {
         cageDetails = details;
         isLoading = false;
@@ -446,7 +447,7 @@ class _AdminCageState extends State<AdminCage> {
                   Text(
                     'Devices (${(cageDetails?.devices?.length ?? 0)})',
                     style: TextStyle(
-                      color: primaryText,
+                      color: lSectionTitle,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -485,12 +486,12 @@ class _AdminCageState extends State<AdminCage> {
                                     device.name,
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: primaryText,
+                                      color: lSectionTitle,
                                     ),
                                   ),
                                   subtitle: Text(
                                     "Status: ${device.status}",
-                                    style: TextStyle(color: primaryText),
+                                    style: TextStyle(color: lSectionTitle),
                                   ),
                                   trailing: IconButton(
                                     icon: Icon(Icons.delete, color: Colors.red),
