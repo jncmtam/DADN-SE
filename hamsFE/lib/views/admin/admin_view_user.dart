@@ -110,8 +110,6 @@ class _ViewUserState extends State<AdminViewUser> {
                 ),
                 SizedBox(height: 16),
                 // Info
-                Utils.displayInfo('User ID', participant.id),
-                Divider(),
                 Utils.displayInfo('Role', participant.role),
                 Divider(),
                 Utils.displayInfo('Joined on', participant.joinDate),

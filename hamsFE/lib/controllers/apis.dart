@@ -235,4 +235,99 @@ class APIs {
       throw Exception('Failed to create cage: $error');
     }
   }
+
+  static Future<CageInit> getCageDetails(String cageId) async {
+    Uri url = Uri.parse('$baseUrl/admin/cages/$cageId');
+    final response = await http.get(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      return CageInit.fromJson(data);
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get cage details: $error');
+    }
+  }
+
+  static Future<Map<String, dynamic>> addDeviceToCage(String cageId, String name, String type) async {
+    Uri url = Uri.parse('$baseUrl/admin/cages/$cageId/devices');
+    final response = await http.post(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+      body: jsonEncode({
+        'name': name,
+        'type': type
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to add device: $error');
+    }
+  }
+
+  static Future<void> deleteDevice(String cageId, String deviceId) async {
+    Uri url = Uri.parse('$baseUrl/admin/devices/$deviceId');
+    final response = await http.delete(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to delete device: $error');
+    }
+  }
+
+  static Future<void> deleteCage(String cageId) async {
+    Uri url = Uri.parse('$baseUrl/admin/cages/$cageId');
+    final response = await http.delete(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to delete cage: $error');
+    }
+  }
+
+  // static Future<Map<String, dynamic>> addSensorToCage(String cageId, String name, String type) async {
+  //   Uri url = Uri.parse('$baseUrl/admin/cages/$cageId/sensors');
+  //   final response = await http.post(
+  //     url,
+  //     headers: <String,String> {
+  //       'Content-Type': 'application/json',
+  //       'Authorization': 'Bearer ${SessionManager().getJwt()}'
+  //     },
+  //     body: jsonEncode({
+  //       'name': name,
+  //       'type': type
+  //     }),
+  //   );
+
+  //   if (response.statusCode == 201) {
+  //     return jsonDecode(response.body);
+  //   } else {
+  //     final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+  //     throw Exception('Failed to add sensor: $error');
+  //   }
+  // }
 }

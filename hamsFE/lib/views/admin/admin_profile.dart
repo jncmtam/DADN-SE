@@ -61,8 +61,6 @@ class AdminProfile extends StatelessWidget {
               ),
               SizedBox(height: 16),
               // Profile Information
-              Utils.displayInfo('User ID', user.id),
-              Divider(),
               Utils.displayInfo('Role', user.role),
               Divider(),
               Utils.displayInfo('Joined on', user.joinDate),
