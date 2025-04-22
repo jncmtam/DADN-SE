@@ -4,7 +4,7 @@ import (
 	"dacnpm/be_mqtt/DADN-SE/hamsBE/api"
 	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/database"
 	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/database/queries"
-	//"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/mqtt"
+	"dacnpm/be_mqtt/DADN-SE/hamsBE/internal/mqtt"
 	"log"
 	"os"
 	"time"
@@ -58,7 +58,7 @@ func main() {
 		log.Println("PORT not set, defaulting to 8080")
 	}
 
-	go mqtt.StartMQTTClientSub(db, "localhost:1883") 
+	go mqtt.StartMQTTClientSub(db, "localhost:1883")
 
 
 	api.SetupRoutes(r, db)

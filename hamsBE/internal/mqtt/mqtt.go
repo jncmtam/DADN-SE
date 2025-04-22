@@ -47,7 +47,9 @@ func (tc *TopicConfig) GetAllTopics() []string {
 	}
 }
 
-func StartMQTTClientSub(db *sql.DB, broker) {
+func StartMQTTClientSub(db *sql.DB, broker string) {
+	topic := DefaultTopics()
+
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(broker)
 	opts.SetClientID("go_mqtt_client")

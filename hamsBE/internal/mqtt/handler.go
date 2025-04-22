@@ -3,7 +3,6 @@ package mqtt
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"database/sql"
 
@@ -27,7 +26,7 @@ func MqttHandler(db *sql.DB) mqtt.MessageHandler {
 
 		var payload MessagePayload
 		if err := json.Unmarshal(msg.Payload(), &payload); err != nil {
-            log.Printf("❌ Failed to parse JSON payload: %v", err)
+            log.Printf("Failed to parse JSON payload: %v", err)
             return
         }
 
@@ -36,9 +35,9 @@ func MqttHandler(db *sql.DB) mqtt.MessageHandler {
 		ctx := context.Background()
 		err := SaveMessageToDB(ctx, db, payload)
 		if err != nil {
-			log.Printf("❌ Database insert error: %v", err)
+			log.Printf("Database insert error: %v", err)
 		} else {
-			log.Println("✅ Data saved to database successfully")
+			log.Println("Data saved to database successfully")
 		}
 	}
 }
