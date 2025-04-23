@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -98,4 +99,56 @@ func JWTMiddleware() gin.HandlerFunc {
 		// Proceed to the next handler
 		c.Next()
 	}
+}
+
+// TokenClaims chứa dữ liệu giải mã từ token
+type TokenClaims struct {
+	UserID string
+	Role   string
+}
+
+// VerifyToken dùng để giải mã token JWT và trả về claims
+func VerifyToken(tokenStr string) (*TokenClaims, error) {
+	if tokenStr == "" {
+		return nil, errors.New("token is required")
+	}
+
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
+		secret := os.Getenv("JWT_SECRET_KEY")
+		if secret == "" {
+			return nil, errors.New("JWT secret is not configured")
+		}
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !token.Valid {
+		return nil, errors.New("token is invalid or expired")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("invalid token claims structure")
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return nil, errors.New("user_id claim missing or invalid")
+	}
+
+	role, ok := claims["role"].(string)
+	if !ok {
+		return nil, errors.New("role claim missing or invalid")
+	}
+
+	return &TokenClaims{
+		UserID: userID,
+		Role:   role,
+	}, nil
 }

@@ -1,10 +1,10 @@
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'condition_enum') THEN
-        CREATE TYPE condition_enum AS ENUM ('>', '<', '=', '>=', '<=');
+        CREATE TYPE condition_enum AS ENUM ('>', '<', '=');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'action_enum') THEN
-        CREATE TYPE action_enum AS ENUM ('turn_on', 'turn_off');
+        CREATE TYPE action_enum AS ENUM ('turn_on', 'turn_off', 'refill');
     END IF;
 END $$;
 

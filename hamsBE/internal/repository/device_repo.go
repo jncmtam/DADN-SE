@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
@@ -23,8 +24,15 @@ func (r *DeviceRepository) CreateDevice(ctx context.Context, name, deviceType, c
 		return nil, err
 	}
 
+	var cageIDValue interface{}
+	if cageID == "" {
+		cageIDValue = nil // Gán NULL
+	} else {
+		cageIDValue = cageID
+	}
+
 	device := &model.Device{}
-	err = r.db.QueryRowContext(ctx, query, name, deviceType, cageID).Scan(
+	err = r.db.QueryRowContext(ctx, query, name, deviceType, cageIDValue).Scan(
 		&device.ID, &device.Name,
 	)
 	if err != nil {
@@ -59,6 +67,28 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
 
     return devices, nil
 }
+
+func (r *DeviceRepository) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
+	// Lấy query từ queries (hoặc bạn có thể viết trực tiếp query ở đây)
+	query := "SELECT id, name FROM devices WHERE cage_id IS NULL"
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []*model.DeviceListResponse
+	for rows.Next() {
+		device := &model.DeviceListResponse{}
+		if err := rows.Scan(&device.ID, &device.Name); err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
+
+	return devices, nil
+}
+
 
 func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (*model.DeviceResponse, error) {
 	query, err := queries.GetQuery("get_device_by_deviceID")
@@ -111,4 +141,28 @@ func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (b
 
 func (r *DeviceRepository) IsExistsID(ctx context.Context, deviceID string) (bool, error) {
 	return r.DeviceExists(ctx, deviceID)
+}
+
+func (r *DeviceRepository) CheckType(ctx context.Context, deviceID string) (string, error) {
+	query, err := queries.GetQuery("check_device_type")
+	if err != nil {
+		return "", err
+	}
+	var deviceType string
+	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(&deviceType)
+	if err == sql.ErrNoRows {
+		return "", errors.New("device not found")
+	}
+	return deviceType, err
+}
+
+
+func (r *DeviceRepository) DoesDeviceNameExist(ctx context.Context, name string) (bool, error) {
+	query, err := queries.GetQuery("check_device_name_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, name).Scan(&exists)
+	return exists, err
 }

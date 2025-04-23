@@ -125,3 +125,13 @@ func (r *CageRepository) IsSameCage(ctx context.Context, deviceID, sensorID stri
 
     return count > 0, nil
 }
+
+func (r *CageRepository) DoesCageNameExist(ctx context.Context, userID string, name string) (bool, error) {
+	query, err := queries.GetQuery("check_cage_name_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, userID, name).Scan(&exists)
+	return exists, err
+}

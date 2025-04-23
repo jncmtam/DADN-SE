@@ -147,6 +147,18 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
+			exists, err := cageService.IsCageNameExists(c.Request.Context(), userID, req.NameCage)
+			if err != nil {
+				log.Printf("[ERROR] Failed to check cage name uniqueness: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			if exists {
+				log.Printf("[WARN] Duplicate cage name: %s for user: %s", req.NameCage, userID)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Cage name already exists"})
+				return
+			}
+
 			// Tạo cage mới cho user
 			cage, err := cageService.CreateCage(c.Request.Context(), req.NameCage, userID)
 			if err != nil {
@@ -174,44 +186,67 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm một thiết bị (device) mới vào chuồng.
-		admin.POST("/cages/:cageID/devices", func(c *gin.Context) {
-			cageID := c.Param("cageID")
-
+		admin.POST("/devices", func(c *gin.Context) {
 			var req struct {
-				Name string `json:"name" binding:"required"`
-				Type string `json:"type" binding:"required,oneof=display lock light pump fan"`
+				Name   string `json:"name" binding:"required"`
+				Type   string `json:"type" binding:"required,oneof=display lock light pump fan"`
+				CageID string `json:"cageID"` // cageID có thể null
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				log.Printf("[ERROR] Invalid request body: %v", err)
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 				return
 			}
-
-			device, err := deviceService.CreateDevice(c.Request.Context(), req.Name, req.Type, cageID)
+		
+			// Kiểm tra trùng tên thiết bị
+			exists, err := deviceService.IsDeviceNameExists(c.Request.Context(), req.Name)
 			if err != nil {
+				log.Printf("[ERROR] Failed to check device name uniqueness: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			if exists {
+				log.Printf("[ERROR] Device name already exists globally: %s", req.Name)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Device name already exists"})
+				return
+			}
+		
+			// Tạo thiết bị
+			device, err := deviceService.CreateDevice(c.Request.Context(), req.Name, req.Type, req.CageID)
+			if err != nil {
+				log.Printf("[ERROR] Failed to create device (name: %s, type: %s): %v", req.Name, req.Type, err)
 				switch {
-					case errors.Is(err, service.ErrInvalidUUID): 
-						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+					case errors.Is(err, service.ErrInvalidUUID):
 						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
 					case errors.Is(err, service.ErrCageNotFound):
-						log.Printf("[ERROR] Cage not found: %s", cageID)
 						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
 					default:
-						log.Printf("[ERROR] Failed to creating device for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-					}
-					return
+				}
+				return
 			}
-	
-			log.Printf("[INFO] Device created successfully: (id: %s, name: %s, type: %s", device.ID, device.Name, device.Type)
-
+		
+			log.Printf("[INFO] Device created successfully: (id: %s, name: %s, type: %s)", device.ID, device.Name, device.Type)
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "Device created successfully",
 				"id":      device.ID,
 				"name":    device.Name,
 			})
 		})
+		
+		
 
+		// Lấy 1 list device cho device drop down
+		admin.GET("/devices", func(c *gin.Context) {
+			deviceList, err := deviceService.GetDevicesAssignable(c.Request.Context())
+			if err != nil {
+				log.Printf("[ERROR] Failed to fetch assignable devices: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			c.JSON(http.StatusOK, deviceList)
+		})
+		
 		// Thêm một cảm biến (sensor) mới vào chuồng 
 		admin.POST("/cages/:cageID/sensors", func(c *gin.Context) {
 			cageID := c.Param("cageID")
@@ -226,7 +261,35 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, cageID)
+			// Kiểm tra trùng tên sensor trong cùng chuồng
+			exists, err := sensorService.IsSensorNameExists(c.Request.Context(), cageID, req.Name)
+			if err != nil {
+				log.Printf("[ERROR] Failed to check sensor name uniqueness: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			if exists {
+				log.Printf("[ERROR] Sensor name already exists in cage %s: %s", cageID, req.Name)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Sensor name already exists in this cage"})
+				return
+			}
+
+			// Tự động set unit theo type
+			var unit string
+			switch req.Type {
+			case "temperature":
+				unit = "oC"
+			case "humidity":
+				unit = "%"
+			case "light":
+				unit = "lux"
+			case "distance":
+				unit = "%"	
+			default:
+				unit = "unknown"
+			}
+
+			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, unit, cageID)
 			if err != nil {
 				switch {
 					case errors.Is(err, service.ErrInvalidUUID): 
@@ -352,15 +415,13 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 					return
 			}
 
-			// Lấy id của sensor
-			// 
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
+				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				return
+			}
 
-			// sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
-			// if err != nil {
-			// 	log.Printf("Error fetching sensors for cage %s: %v", cageID, err)
-			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			// 	return
-			// }
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("Error fetching devices for cage %s: %v", cageID, err)
@@ -371,7 +432,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
-				//"sensors": sensors,
+				"status": cage.Status,
+				"sensors": sensors,
 				"devices": devices,
 			})
 		})

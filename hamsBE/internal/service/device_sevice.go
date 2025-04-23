@@ -18,28 +18,33 @@ func NewDeviceService(deviceRepo *repository.DeviceRepository, CageRepo *reposit
 }
 
 func (s *DeviceService) CreateDevice(ctx context.Context, name, deviceType, cageID string) (*model.Device, error) {
-	if name == "" || deviceType == "" || cageID == ""{
-		return nil, errors.New("name, deviceType and cageID are required")
+	if name == "" || deviceType == "" {
+		return nil, errors.New("name and deviceType are required")
 	}
 
-	if err := IsValidUUID(cageID); err != nil {
-		return nil, err 
-	}
+	// Nếu có cageID, kiểm tra tính hợp lệ và sự tồn tại của cageID
+	if cageID != "" {
+		if err := IsValidUUID(cageID); err != nil {
+			return nil, ErrInvalidUUID
+		}
 
-	exists, err := s.CageRepo.CageExists(ctx, cageID)
-	if err != nil {
-		return nil, fmt.Errorf("error checking cage existence: %w", err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("%w: cage with ID %s does not exist", ErrCageNotFound, cageID)
+		exists, err := s.CageRepo.CageExists(ctx, cageID)
+		if err != nil {
+			return nil, fmt.Errorf("error checking cage existence: %w", err)
+		}
+		if !exists {
+			return nil, ErrCageNotFound
+		}
 	}
 
 	device, err := s.DeviceRepo.CreateDevice(ctx, name, deviceType, cageID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create device: %w", err)
 	}
+
 	return device, nil
 }
+
 
 
 func (s *DeviceService) GetDevicesByCageID(ctx context.Context, cageID string) ([]*model.DeviceResponse, error) {
@@ -67,6 +72,17 @@ func (s *DeviceService) GetDeviceByID(ctx context.Context, deviceID string) (*mo
 	return device, nil
 }
 
+func (s *DeviceService) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
+	// Gọi repository để lấy danh sách thiết bị có thể phân công
+	devices, err := s.DeviceRepo.GetDevicesAssignable(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Trả về danh sách thiết bị
+	return devices, nil
+}
+
 func (s *DeviceService) DeleteDevice(ctx context.Context, deviceID string) error {
 	if deviceID == "" {
 		return errors.New("deviceID is required")
@@ -85,4 +101,22 @@ func (s *DeviceService) DeleteDevice(ctx context.Context, deviceID string) error
 	}
 
 	return s.DeviceRepo.DeleteDeviceByID(ctx, deviceID)
+}
+
+func (s *DeviceService) ValidateDeviceAction(ctx context.Context, deviceID, action string) error {
+	deviceType, err := s.DeviceRepo.CheckType(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	if action == "refill" && deviceType != "pump" {
+		return fmt.Errorf("only devices of type 'pump' can use action 'refill'")
+	}
+	return nil
+}
+
+func (s *DeviceService) IsDeviceNameExists(ctx context.Context, name string) (bool, error) {
+	if name == "" {
+		return false, errors.New("device name is required")
+	}
+	return s.DeviceRepo.DoesDeviceNameExist(ctx, name)
 }
