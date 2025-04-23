@@ -82,6 +82,10 @@ func (s *DeviceService) GetDevicesAssignable(ctx context.Context) ([]*model.Devi
 		return nil, err
 	}
 
+	if devices == nil {
+		devices = []*model.DeviceListResponse{}
+	}
+
 	return devices, nil
 }
 
