@@ -58,7 +58,7 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
     for rows.Next() {
         device := &model.DeviceResponse{}
         if err := rows.Scan(
-            &device.ID, &device.Name, &device.Status,
+            &device.ID, &device.Name, &device.Status, &device.Type,
         ); err != nil {
             return nil, err
         }
@@ -101,7 +101,7 @@ func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (
 
 	device := &model.DeviceResponse{}
 	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(
-		&device.ID, &device.Name, &device.Status,
+		&device.ID, &device.Name, &device.Status, &device.Type,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

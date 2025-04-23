@@ -475,7 +475,8 @@
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
                 "name": "Fan 1",
-                "status": "off" // on / auto
+                "status": "off" // on / auto,
+                
             }
         ],
         "sensors": [
@@ -641,7 +642,8 @@
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
                 "name": "Fan 1",
-                "status": "off" // on / auto
+                "status": "off", // on / auto
+                "action_type": "on_off" // refill
             }
         ],
         "sensors": [
@@ -692,7 +694,8 @@
     {
         "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
         "name": "Fan 1",
-        "status": "off",
+        "status": "off", // on auto
+        "action_type": "on_off", // refill
         "automation_rule": [
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",

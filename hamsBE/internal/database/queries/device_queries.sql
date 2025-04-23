@@ -4,12 +4,12 @@ VALUES ($1, $2, $3)
 RETURNING id, name;
 
 -- name: get_devices_by_cageID
-SELECT id, name, status
+SELECT id, name, status, type
 FROM devices
 WHERE cage_id = $1;
 
 -- name: get_device_by_deviceID
-SELECT id, name, status
+SELECT id, name, status, type
 FROM devices
 WHERE id = $1;
 

@@ -512,12 +512,23 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
+			devicesRes := []map[string]interface{}{}
+
+			for _, device := range devices {
+				deviceMap := map[string]interface{}{
+					"id":     device.ID,
+					"name":   device.Name,
+					"status": device.Status,
+				}
+				devicesRes = append(devicesRes, deviceMap)
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
 				"status": cage.Status,
 				"sensors": sensors,
-				"devices": devices,
+				"devices": devicesRes,
 			})
 		})
 

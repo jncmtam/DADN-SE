@@ -138,12 +138,30 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
+			devicesWithActionType := []map[string]interface{}{}
+
+			for _, device := range devices {
+				deviceMap := map[string]interface{}{
+					"id":     device.ID,
+					"name":   device.Name,
+					"status": device.Status,
+				}
+		
+				if device.Type == "pump" {
+					deviceMap["action_type"] = "refill"
+				} else {
+					deviceMap["action_type"] = "on_off"
+				}
+		
+				devicesWithActionType = append(devicesWithActionType, deviceMap)
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
 				"status": cage.Status,
 				"sensors": sensors,
-				"devices": devices,
+				"devices": devicesWithActionType,
 			})
 		})
 
@@ -172,10 +190,16 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			} 
 
+			var action_type string = "on_off";
+			if device.Type == "pump" {
+				action_type = "refill"
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
 				"name": device.Name,
 				"status": device.Status,
+				"action_type": action_type,
 				"automation_rule": automationRules,
 				"schedule_rule": scheduleRules,
 			})
