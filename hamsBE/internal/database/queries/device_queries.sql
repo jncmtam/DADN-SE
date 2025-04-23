@@ -31,3 +31,6 @@ SELECT type FROM devices WHERE id = $1 LIMIT 1;
 SELECT EXISTS (
   SELECT 1 FROM devices WHERE name = $1
 );
+
+-- name: assign_device_to_cage
+UPDATE devices SET cage_id = $1 WHERE id = $2;
