@@ -33,7 +33,7 @@ func (r *SensorRepository) GetSensorsByCageID(ctx context.Context, cageID string
         sensor := &model.SensorResponse{}
         if err := rows.Scan(
             &sensor.ID, &sensor.Type,
-            &sensor.Value, &sensor.Unit,
+            &sensor.Unit,
         ); err != nil {
             return nil, err
         }
@@ -42,15 +42,15 @@ func (r *SensorRepository) GetSensorsByCageID(ctx context.Context, cageID string
     return sensors, nil
 }
 
-func (r *SensorRepository) CreateSensor(ctx context.Context, name, sensorType, cageID string) (*model.Sensor, error) {
+func (r *SensorRepository) CreateSensor(ctx context.Context, name, sensorType, unit, cageID string) (*model.Sensor, error) {
 	query, err := queries.GetQuery("create_sensor")
 	if err != nil {
 		return nil, err
 	}
 
 	sensor := &model.Sensor{}
-	err = r.db.QueryRowContext(ctx, query, name, sensorType, cageID).Scan(
-		&sensor.ID,
+	err = r.db.QueryRowContext(ctx, query, name, sensorType, unit, cageID).Scan(
+		&sensor.ID, &sensor.Name,
 	)
 	if err != nil {
 		return nil, err

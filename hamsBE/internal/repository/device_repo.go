@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
@@ -60,6 +61,28 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
     return devices, nil
 }
 
+func (r *DeviceRepository) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
+	// Lấy query từ queries (hoặc bạn có thể viết trực tiếp query ở đây)
+	query := "SELECT id, name FROM devices WHERE cage_id IS NULL"
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []*model.DeviceListResponse
+	for rows.Next() {
+		device := &model.DeviceListResponse{}
+		if err := rows.Scan(&device.ID, &device.Name); err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
+
+	return devices, nil
+}
+
+
 func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (*model.DeviceResponse, error) {
 	query, err := queries.GetQuery("get_device_by_deviceID")
 	if err != nil {
@@ -111,4 +134,17 @@ func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (b
 
 func (r *DeviceRepository) IsExistsID(ctx context.Context, deviceID string) (bool, error) {
 	return r.DeviceExists(ctx, deviceID)
+}
+
+func (r *DeviceRepository) CheckType(ctx context.Context, deviceID string) (string, error) {
+	query, err := queries.GetQuery("check_device_type")
+	if err != nil {
+		return "", err
+	}
+	var deviceType string
+	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(&deviceType)
+	if err == sql.ErrNoRows {
+		return "", errors.New("device not found")
+	}
+	return deviceType, err
 }

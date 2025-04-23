@@ -23,3 +23,6 @@ WHERE devices.id = $1 AND cages.user_id = $2;
 
 -- name: check_device_exists
 SELECT EXISTS(SELECT 1 FROM devices WHERE id = $1);
+
+-- name: check_device_type
+SELECT type FROM devices WHERE id = $1 LIMIT 1;

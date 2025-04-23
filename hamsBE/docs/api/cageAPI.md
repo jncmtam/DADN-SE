@@ -389,12 +389,50 @@
     }
     ```
 
+### 9. Get List Available Devices
+- **Method**: `GET`
+- **URL**: `/admin/devices`
+- **Headers**:
+  - `Authorization: Bearer <token>`
+- **Response**:
+  - **200 OK**: 
+    ```json
+    [
+        {
+            "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
+            "name": "Fan 1"
+        },
+        {
+            "id": "5f74e3d1-a327-42d5-a5e2-d6b9b46d1f50",
+            "name": "Light 1"
+        }
+    ]
+    ```
+  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - **403 Forbidden**: Permission denied
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - **500 Internal Server Error**: 
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
 
 ## II. User Routes
 
 ### 1. Get Cages for Logged-in User
 - **Method**: `GET`
-- **URL**: `/user/cages`
+- **URL**: `/cages`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Response**:
@@ -430,7 +468,7 @@
 
 ### 2. Get Cage Details for Logged-in User
 - **Method**: `GET`
-- **URL**: `/user/cages/:cageID`
+- **URL**: `/cages/:cageID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -442,6 +480,7 @@
     {
         "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
         "name": "Cage 1",
+        "status": "off", // on
         "devices": [
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
@@ -451,12 +490,11 @@
         ],
         "sensors": [
             {
-                "id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
+                "id": "27bd5a13-a77e-4a28-9741-a6a08a1094cd",
                 "type": "temperature",
-                "value": 0,
-                "unit": "oC" 
+                "unit": "oC"
             }
-        ]
+        ],
     }
     ```
   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
@@ -486,7 +524,7 @@
 
 ### 3. Get Device Details for Logged-in User
 - **Method**: `GET`
-- **URL**: `/user/devices/:deviceID`
+- **URL**: `/devices/:deviceID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -503,21 +541,22 @@
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
                 "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b", 
-                "condition": ">",
-                "threshold": 30,
-                "unit": "oC",
-                "action": "turn_on",
+                "sensor_type": "temperature",
+                "condition": ">", // > < =
+                "threshold": 30, // float
+                "unit": "oC", // % lux cm
+                "action": "turn_on", // turn_off refill
             }
         ],
         "schedule_rule": [
           {
               "id": "3d142e2a-8d48-4bc8-8ff1-eadf2a9211bf",
-              "execution_time": "0000-01-01T17:17:00Z",
+              "execution_time": "17:17",
               "days": [
-                  "Mon",
-                  "Tue"
-              ],
-              "action": "turn_on"
+                  "mon",
+                  "tue"
+              ], // sun, mon, tue, wed, thu, fri, sat
+              "action": "turn_on" //turn_off refill
           }
         ]
     }
@@ -549,7 +588,7 @@
 
 ### 4. Add Automation Rule for Device 
 - **Method**: `POST`
-- **URL**: `/user/devices/:deviceID/automations`
+- **URL**: `/devices/:deviceID/automations`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -560,7 +599,6 @@
       "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
       "condition": "<",
       "threshold": 30,
-      "unit": "°C",
       "action": "turn_on"
     }
 
@@ -607,7 +645,7 @@
 
 ### 5. Delete Automation Rule
 - **Method**: `DELETE`
-- **URL**: `/user/automations/:ruleID`
+- **URL**: `/automations/:ruleID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -647,7 +685,7 @@
 
 ### 6. Add Schedule Rule for Device 
 - **Method**: `POST`
-- **URL**: `/user/devices/:deviceID/schedules`
+- **URL**: `/devices/:deviceID/schedules`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -656,7 +694,7 @@
   ```json
     {
         "execution_time": "17:17"
-        , "days": ["Mon", "Tue"]
+        , "days": ["mon", "tue"]
         , "action": "turn_on"
     }
   ```
@@ -702,7 +740,7 @@
 
 ### 7. Delete Schedule Rule
 - **Method**: `DELETE`
-- **URL**: `/user/schedules/:ruleID`
+- **URL**: `/schedules/:ruleID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
@@ -730,10 +768,61 @@
   - `404 Not Found`: ruleID not found
     ```json
     {
-        "error": "Automation rule not found"
+        "error": "Schedule rule not found"
     }
     ```
   - `500 Internal Server Error`:
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
+### 8. Get Sensors in a Cage
+- **Method**: `GET`
+- **URL**: `/cages/:cageID/sensors`
+- **Headers**:
+  - `Authorization: Bearer <token>`
+- **Parameters**:
+  - `cageID` (string, required): ID của chuồng cần lấy danh sách cảm biến.
+  
+- **Response**:
+  - **200 OK**: 
+    ```json
+    {
+        "sensors": [
+            {
+                "id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
+                "type": "temperature",
+                "unit": "°C"
+            },
+            {
+                "id": "9c1b5747-d97a-429e-9b0a-8b7be87901db",
+                "type": "humidity",
+                "unit": "%"
+            }
+        ]
+    }
+    ```
+  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - **403 Forbidden**: Permission denied (if the user does not have ownership of the cage)
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - **404 Not Found**: Cage not found or no sensors found
+    ```json
+    {
+      "error": "Sensors not found for the specified cage"
+    }
+    ```
+  - **500 Internal Server Error**: 
     ```json
     {
       "error": "Internal Server Error"

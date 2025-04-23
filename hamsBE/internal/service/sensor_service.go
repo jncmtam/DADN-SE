@@ -30,8 +30,8 @@ func (s *SensorService) GetSensorsByCageID(ctx context.Context, cageID string) (
 	return sensors, nil
 }
 
-func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, cageID string) (*model.Sensor, error) {
-	if name == "" || sensorType == "" || cageID == ""{
+func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, unit, cageID string) (*model.Sensor, error) {
+	if name == "" || sensorType == "" || unit == "" || cageID == ""{
 		return nil, errors.New("name, sensorType and cageID are required")
 	}
 
@@ -48,7 +48,7 @@ func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, cageID 
 	}
 
 
-	sensor, err := s.SensorRepo.CreateSensor(ctx, name, sensorType, cageID)
+	sensor, err := s.SensorRepo.CreateSensor(ctx, name, sensorType, unit, cageID)
 	if err != nil {
 		return nil, err
 	}

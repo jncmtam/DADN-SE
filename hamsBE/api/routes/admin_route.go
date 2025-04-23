@@ -212,6 +212,18 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
+		// Lấy 1 list device cho device drop down
+		admin.GET("/devices", func(c *gin.Context) {
+			deviceList, err := deviceService.GetDevicesAssignable(c.Request.Context())
+			if err != nil {
+				log.Printf("[ERROR] Failed to fetch assignable devices: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			c.JSON(http.StatusOK, deviceList)
+		})
+		
+
 		// Thêm một cảm biến (sensor) mới vào chuồng 
 		admin.POST("/cages/:cageID/sensors", func(c *gin.Context) {
 			cageID := c.Param("cageID")
@@ -226,7 +238,22 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, cageID)
+			// Tự động set unit theo type
+			var unit string
+			switch req.Type {
+			case "temperature":
+				unit = "oC"
+			case "humidity":
+				unit = "%"
+			case "light":
+				unit = "lux"
+			case "distance":
+				unit = "cm"
+			default:
+				unit = "unknown"
+			}
+
+			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, unit, cageID)
 			if err != nil {
 				switch {
 					case errors.Is(err, service.ErrInvalidUUID): 

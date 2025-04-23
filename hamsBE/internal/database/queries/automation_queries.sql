@@ -7,9 +7,17 @@ RETURNING id, created_at;
 DELETE FROM automation_rules WHERE id = $1;
 
 -- name: get_automation_rules_by_deviceID
-SELECT id, sensor_id, condition, threshold, unit, action
-FROM automation_rules
-WHERE device_id = $1;
+SELECT 
+    ar.id, 
+    ar.sensor_id, 
+    s.type AS sensor_type,
+    ar.condition, 
+    ar.threshold, 
+    s.unit, 
+    ar.action
+FROM automation_rules ar
+JOIN sensors s ON ar.sensor_id = s.id
+WHERE ar.device_id = $1;
 
 -- name: IsOwnedByUser_Automation
 SELECT COUNT(*) 
