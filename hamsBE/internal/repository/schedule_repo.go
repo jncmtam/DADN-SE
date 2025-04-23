@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
+	"time"
+
 	//"log"
 
 	"github.com/lib/pq"
@@ -61,10 +63,12 @@ func (r *ScheduleRepository) GetScheduleRulesByDeviceID(ctx context.Context, dev
 	var rules []*model.ScheduleResGetByDeviceID
 	for rows.Next() {
 		rule := &model.ScheduleResGetByDeviceID{}
-		err := rows.Scan(&rule.ID, &rule.ExecutionTime, pq.Array(&rule.Days), &rule.Action)
+		var rawTime time.Time
+		err := rows.Scan(&rule.ID, &rawTime, pq.Array(&rule.Days), &rule.Action)
 		if err != nil {
 			return nil, err
 		}
+		rule.ExecutionTime = rawTime.Format("15:04")
 		rules = append(rules, rule)
 	}
 	return rules, nil

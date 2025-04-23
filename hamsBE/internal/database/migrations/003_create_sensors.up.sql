@@ -1,7 +1,7 @@
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sensor_type') THEN
-        CREATE TYPE sensor_type AS ENUM ('temperature', 'humidity', 'light', 'distance', 'weight');
+        CREATE TYPE sensor_type AS ENUM ('temperature', 'humidity', 'light', 'distance');
     END IF;
 END $$;
 
@@ -12,7 +12,7 @@ CREATE TABLE sensors (
     type sensor_type NOT NULL,  -- Sử dụng kiểu ENUM đã tạo
     value FLOAT,
     unit VARCHAR(50),
-    cage_id UUID NOT NULL,
+    cage_id UUID,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cage_id) REFERENCES cages(id) ON DELETE CASCADE
 );

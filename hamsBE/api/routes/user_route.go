@@ -27,8 +27,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	deviceRepo := repository.NewDeviceRepository(db)
 	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
 
-	//sensorRepo := repository.NewSensorRepository(db)
-	//sensorService := service.NewSensorService(sensorRepo, cageRepo)
+	sensorRepo := repository.NewSensorRepository(db)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo)
 
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
@@ -37,10 +37,10 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	scheduleService := service.NewScheduleService(scheduleRepo)
 
 
-	user := r.Group("/user")
-	user.Use(middleware.JWTMiddleware())
+	//user := r.Group("/user")
+	r.Use(middleware.JWTMiddleware())
 	{
-		user.GET("/:id", func(c *gin.Context) {
+		r.GET("/:id", func(c *gin.Context) {
 			id := c.Param("id")
 			user, err := userRepo.GetUserByID(c.Request.Context(), id)
 			if err != nil {
@@ -51,7 +51,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Lấy danh sách chuồng (cages) của user
-		user.GET("/cages", func(c *gin.Context) {
+		r.GET("/cages", func(c *gin.Context) {
 			userID, exists := c.Get("user_id")
 			if !exists {
 				log.Printf("[ERROR] user_id not found in context")
@@ -69,28 +69,68 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, cages)
 		})
 
-		// Thêm 1 API cho FE cập nhật value sensor 
-		// Gửi dữ liệu cảm biến có giá trị lấy ra từ redis
+		// Get General Info (number of active devices in all cages)
+		r.GET("/cages/general-info", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+		
+			count, err := deviceService.CountActiveDevicesByUserID(c.Request.Context(), userID.(string))
+			if err != nil {
+				log.Printf("[ERROR] Failed to count active devices for user %s: %v", userID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"active_devices": count})
+		})
+
+		// Lấy danh sách sensor trong 1 cage
+		r.GET("/cages/:cageID/sensors", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			cageID := c.Param("cageID")
+			
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
+				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"sensors": sensors,
+			})
+		})
 
 		// Xem chi tiết một chuồng (a cage) của user
-		user.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+		r.GET("/cages/:cageID",ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
 			cageID := c.Param("cageID")
 			
 			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrCageNotFound):
+						log.Printf("[ERROR] Cage not found: %s", cageID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+					default:
+						log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+					}
+					return
 			}
 
-			// Lay gia trị cua sensor từ redis 
-
-			// sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
-			// if err != nil {
-			// 	log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
-			// 	c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
-			// 	return
-			// }
+			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cageID, err.Error())
+				c.JSON(http.StatusNotFound, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			
 			devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cageID)
 			if err != nil {
 				log.Printf("[ERROR] Error fetching devices for cage %s: %v", cageID, err.Error())
@@ -98,16 +138,35 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
+			devicesWithActionType := []map[string]interface{}{}
+
+			for _, device := range devices {
+				deviceMap := map[string]interface{}{
+					"id":     device.ID,
+					"name":   device.Name,
+					"status": device.Status,
+				}
+		
+				if device.Type == "pump" {
+					deviceMap["action_type"] = "refill"
+				} else {
+					deviceMap["action_type"] = "on_off"
+				}
+		
+				devicesWithActionType = append(devicesWithActionType, deviceMap)
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
-				//"sensors": sensors,
-				"devices": devices,
+				"status": cage.Status,
+				"sensors": sensors,
+				"devices": devicesWithActionType,
 			})
 		})
 
 		// Xem chi tiết một thiết bị (device) của user
-		user.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+		r.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			
 			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
@@ -131,24 +190,29 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			} 
 
+			var action_type string = "on_off";
+			if device.Type == "pump" {
+				action_type = "refill"
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
 				"name": device.Name,
 				"status": device.Status,
+				"action_type": action_type,
 				"automation_rule": automationRules,
 				"schedule_rule": scheduleRules,
 			})
 		})
 
 		// Thêm automation rule cho thiết bị
-		user.POST("/devices/:deviceID/automations", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+		r.POST("/devices/:deviceID/automations", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			
 			var req struct {
 				SensorID 	string `json:"sensor_id" binding:"required"`
 				Condition 	string `json:"condition" binding:"required"`
 				Threshold 	float64 `json:"threshold" binding:"required"`
-				Unit 		string `json:"unit" binding:"required"`
 				Action 		string `json:"action" binding:"required"`
 			}
 
@@ -158,16 +222,24 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			validConditions := map[string]bool{"<": true, ">": true, "=": true, ">=": true, "<=": true}
+			validConditions := map[string]bool{"<": true, ">": true, "=": true}
 			if !validConditions[req.Condition] {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid condition"})
 				return
 			}
 
-			validActions := map[string]bool{"turn_on": true, "turn_off": true}
+			validActions := map[string]bool{"turn_on": true, "turn_off": true, "refill": true}
 			if !validActions[req.Action] {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
 				return
+			}
+
+			if req.Action == "refill" {
+				if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
+					log.Printf("[ERROR] %v", err)
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
 			}
 
 			rule := &model.AutomationRule{
@@ -175,7 +247,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				DeviceID:  deviceID,
 				Condition: req.Condition,
 				Threshold: req.Threshold,
-				Unit:      req.Unit,
 				Action:    req.Action,
 			}
 			createRule, err := automationService.AddAutomationRule(c.Request.Context(), rule, cageService) 
@@ -198,7 +269,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Xóa automation rule
-		user.DELETE("/automations/:ruleID", ownershipMiddleware(automationRepo, "ruleID"), func(c *gin.Context) {
+		r.DELETE("/automations/:ruleID", ownershipMiddleware(automationRepo, "ruleID"), func(c *gin.Context) {
 			ruleID := c.Param("ruleID")
 			
 			err := automationService.RemoveAutomationRule(c.Request.Context(), ruleID)
@@ -223,13 +294,13 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm API tạo schedule
-		user.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+		r.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
 			
 			var req struct {
 				ExecutionTime 	string `json:"execution_time" binding:"required"`
 				Days 			[]string `json:"days" binding:"required"`
-				Action 			string `json:"action" binding:"required,oneof=turn_on turn_off"`
+				Action 			string `json:"action" binding:"required,oneof=turn_on turn_off refill"`
 			}
 
 			if err := c.ShouldBindJSON(&req); err != nil {
@@ -239,31 +310,40 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 
 			// Kiểm tra ExecutionTime có đúng định dạng HH:MM không
-			_, err := time.Parse("15:04", req.ExecutionTime)
-			if err != nil {
-				log.Printf("[ERROR] Invalid execution_time format: %v", err.Error())
+			parsedTime, parseErr := time.Parse("15:04", req.ExecutionTime)
+			if parseErr != nil {
+				log.Printf("[ERROR] Invalid execution_time format: %v", parseErr.Error())
 				c.JSON(http.StatusBadRequest, gin.H{"error": "execution_time must be in format HH:MM"})
 				return
 			}
-
+			
 			// Kiểm tra Days có giá trị hợp lệ không
 			validDays := map[string]bool{
-				"Mon": true, "Tue": true, "Wed": true, "Thu": true, "Fri": true, "Sat": true, "Sun": true,
+				"mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true,
 			}
 			for _, day := range req.Days {
 				if !validDays[day] {
 					log.Printf("[ERROR] Invalid day in schedule: %s", day)
-					c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: Mon, Tue, Wed, Thu, Fri, Sat, Sun"})
+					c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: mon, tue, wed, thu, fri, sat, sun"})
+					return
+				}
+			}
+
+			if req.Action == "refill" {
+				if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
+					log.Printf("[ERROR] %v", err)
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 					return
 				}
 			}
 
 			rule := &model.ScheduleRule{
-				ExecutionTime:  req.ExecutionTime,
+				ExecutionTime:  parsedTime.Format("15:04"), 
 				Days:  			req.Days,
 				DeviceID: 		deviceID,
 				Action: 		req.Action,
 			}
+
 			createSchedule, err := scheduleService.AddScheduleRule(c.Request.Context(), rule) 
 			if err != nil {
 				log.Printf("[ERROR] Failed to create schedule rule: %v", err.Error())
@@ -278,7 +358,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 		})
 
 		// Thêm API xóa schedule
-		user.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
+		r.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
 			ruleID := c.Param("ruleID")
 			
 			err := scheduleService.RemoveScheduleRule(c.Request.Context(), ruleID)
@@ -302,8 +382,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Bật / Tắt / Auto device
-		// Active/ Inactive cage
 	}
 }
 

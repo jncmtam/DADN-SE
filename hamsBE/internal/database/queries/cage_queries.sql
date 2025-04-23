@@ -30,9 +30,15 @@ SELECT EXISTS(SELECT 1 FROM cages WHERE id = $1 AND user_id = $2);
 -- name: check_cage_exists
 SELECT EXISTS(SELECT 1 FROM cages WHERE id = $1);
 
--- name: check_device_and_sensor_in_same_cage
-SELECT EXISTS(
-    SELECT 1
-    FROM devices d JOIN sensors s ON d.cage_id = s.cage_id
-    WHERE d.id = $1 AND s.id = $2
+
+-- name: check_deviceID_isSameCage_sensorID
+SELECT COUNT(*)
+FROM devices d JOIN sensors s 
+    ON d.cage_id = s.cage_id
+WHERE d.id = $1 AND s.id = $2;
+
+-- name: check_cage_name_exists
+SELECT EXISTS (
+  SELECT 1 FROM cages WHERE user_id = $1 AND name = $2
 );
+

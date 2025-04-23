@@ -16,6 +16,7 @@ type AutomationRule struct {
 type AutoRuleResByDeviceID struct {
 	ID         string    `json:"id"`
 	SensorID   string    `json:"sensor_id"`
+	SensorType string	 `json:"sensor_type"`
 	Condition  string    `json:"condition"`
 	Threshold  float64   `json:"threshold"`
 	Unit       string    `json:"unit"`

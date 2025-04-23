@@ -15,6 +15,10 @@ type Sensor struct{
 type SensorResponse struct{
 	ID 			string 		`json:"id"`
 	Type 		string 		`json:"type"`
-	Value 		float64 	`json:"value"`
 	Unit 		string 		`json:"unit"`
+}
+
+type SensorListResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
