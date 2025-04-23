@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../controllers/session.dart';
 import 'constants.dart';
@@ -183,9 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               );
                             }
-                            if (kDebugMode) {
-                              print('Error: $e');
-                            }
+                            debugPrint('Error: $e');
                           }
                         },
                         child: Text(

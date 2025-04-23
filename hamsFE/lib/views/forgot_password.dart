@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hamsFE/views/constants.dart';
 
@@ -33,7 +32,7 @@ class _ForgetPasswordState extends State<ForgetPassword> {
           backgroundColor: successStatus,
         ),
       );
-      
+
       _showOTPDialog(email);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -43,9 +42,7 @@ class _ForgetPasswordState extends State<ForgetPassword> {
         ),
       );
 
-      if (kDebugMode) {
-        print('Error: $e');
-      }
+      debugPrint('Error: $e');
     } finally {
       setState(() {
         _isSendingOtp = false;
@@ -120,12 +117,9 @@ class _ForgetPasswordState extends State<ForgetPassword> {
         ),
       );
 
-      if (kDebugMode) {
-        print('Error: $e');
-      }
+      debugPrint('Error: $e');
     }
   }
-
 
   @override
   Widget build(BuildContext context) {

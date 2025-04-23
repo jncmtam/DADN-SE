@@ -46,13 +46,13 @@ ConditionalOperator stringToConditionalOperator(String operator) {
   }
 }
 
-enum ActionType { on, off, refill }
+enum ActionType { turn_on, turn_off, refill }
 
 String actionTypeToString(ActionType action) {
   switch (action) {
-    case ActionType.on:
+    case ActionType.turn_on:
       return 'Turn on';
-    case ActionType.off:
+    case ActionType.turn_off:
       return 'Turn off';
     case ActionType.refill:
       return 'Refill';
@@ -90,7 +90,7 @@ class ConditionalRule extends AutomationRule {
       unit: json['unit'] ?? 'N/A',
       action: ActionType.values.firstWhere(
         (e) => e.toString() == 'ActionType.${json['action']}',
-        orElse: () => ActionType.off,
+        orElse: () => ActionType.turn_off,
       ),
     );
   }
@@ -100,7 +100,6 @@ class ConditionalRule extends AutomationRule {
       'sensor_id': sensorId,
       'condition': conditionalOperatorToString(operator),
       'threshold': threshold,
-      // 'unit': unit,
       'action': action.toString().split('.').last,
     };
   }
@@ -151,7 +150,7 @@ class ScheduledRule extends AutomationRule {
       ),
       action: ActionType.values.firstWhere(
         (e) => e.toString() == 'ActionType.${json['action']}',
-        orElse: () => ActionType.off,
+        orElse: () => ActionType.turn_off,
       ),
     );
   }
@@ -159,7 +158,8 @@ class ScheduledRule extends AutomationRule {
   Map<String, dynamic> toJson() {
     return {
       'days': days.map((day) => day.toString().split('.').last).toList(),
-      'execution_time': time,
+      'execution_time':
+          '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
       'action': action.toString().split('.').last,
     };
   }

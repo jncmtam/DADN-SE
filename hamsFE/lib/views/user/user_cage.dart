@@ -6,6 +6,7 @@ import 'package:hamsFE/models/cage.dart';
 import 'package:hamsFE/models/device.dart';
 import 'package:hamsFE/views/constants.dart';
 import 'package:hamsFE/views/user/user_device.dart';
+import 'package:hamsFE/views/utils.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:hamsFE/models/sensor.dart';
 
@@ -148,6 +149,12 @@ class _UserCageScreenState extends State<UserCageScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Utils.displayInfo('Cage ID', _cage.id),
+                  Utils.displayInfo(
+                    'Status',
+                    _cage.isEnabled ? 'Enabled' : 'Disabled',
+                  ),
+                  SizedBox(height: 20),
                   Text(
                     'Sensors (${_cage.sensors.length})',
                     style: TextStyle(
@@ -286,42 +293,97 @@ class _UserCageScreenState extends State<UserCageScreen> {
               color: lCardTitle,
             ),
           ),
-          trailing: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: ldisableBackground,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(options.length, (index) {
-                final isSelected = index == device.status.index;
-                return GestureDetector(
-                  onTap: () {
-                    _switchDeviceStatus(device.id, DeviceStatus.values[index]);
-                  },
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? selectedColors[index]
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Center(
-                      child: Text(
-                        options[index],
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isSelected ? lAppBarContent : lDisableText,
+          trailing: device.type == DeviceType.refill
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        _switchDeviceStatus(device.id, DeviceStatus.on);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: lOnMode,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          "Refill",
+                          style: TextStyle(color: primaryButtonContent),
                         ),
                       ),
                     ),
+                    SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (device.status == DeviceStatus.auto) {
+                          _switchDeviceStatus(device.id, DeviceStatus.off);
+                        } else {
+                          _switchDeviceStatus(device.id, DeviceStatus.auto);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: device.status == DeviceStatus.auto
+                            ? lAutoMode
+                            : ldisableBackground,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          "Auto",
+                          style: TextStyle(
+                            color: device.status == DeviceStatus.auto
+                                ? lAppBarContent
+                                : lDisableText,
+                          ),
+                        ),
+                      ),
+                    )
+                  ],
+                )
+              : Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    color: ldisableBackground,
                   ),
-                );
-              }),
-            ),
-          ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(options.length, (index) {
+                      final isSelected = index == device.status.index;
+                      return GestureDetector(
+                        onTap: () {
+                          _switchDeviceStatus(
+                              device.id, DeviceStatus.values[index]);
+                        },
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? selectedColors[index]
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Center(
+                            child: Text(
+                              options[index],
+                              style: TextStyle(
+                                fontSize: 14,
+                                color:
+                                    isSelected ? lAppBarContent : lDisableText,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
           onTap: () {
             Navigator.push(
               context,

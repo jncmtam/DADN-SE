@@ -191,7 +191,7 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
                                             Navigator.pop(context, true),
                                         child: Text("Delete",
                                             style:
-                                                TextStyle(color: Colors.red)),
+                                                TextStyle(color: failStatus)),
                                       ),
                                     ],
                                   ),
@@ -253,14 +253,19 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
     bool isConditionTab = true;
 
     // Shared state holders
-    String selectedSensor = widget.sensors[0].id;
+    String selectedSensor =
+        widget.sensors.isNotEmpty ? widget.sensors.first.id : 'N/A';
     ConditionalOperator selectedOperator = ConditionalOperator.greaterThan;
     double selectedValue = 30.5;
 
     TimeOfDay selectedTime = TimeOfDay.now();
     Set<DayOfWeek> selectedDays = {};
 
-    ActionType selectedAction = ActionType.on;
+    debugPrint('actionType: ${ActionType.values}');
+    List<ActionType> availableActions = _device.type == DeviceType.refill
+        ? ActionType.values.sublist(2, 3)
+        : ActionType.values.sublist(0, 2);
+    ActionType selectedAction = availableActions.first;
 
     showDialog(
       context: context,
@@ -295,112 +300,227 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
                         children: [
                           // Condition UI
                           if (isConditionTab) ...[
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'When',
+                            // if no sensor in cage, display Text Conditional Rule unavailable
+                            if (widget.sensors.isEmpty) ...[
+                              Text(
+                                'No sensors available',
                                 style: TextStyle(
-                                  color: lSectionTitle,
+                                  color: lNormalText,
                                   fontSize: 16,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                DropdownButton<String>(
-                                  value: selectedSensor,
-                                  items: widget.sensors
-                                      .map((sensor) => DropdownMenuItem(
-                                            value: sensor.id,
-                                            child: Text(sensor.getSensorName()),
-                                          ))
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => selectedSensor = val);
-                                    }
-                                  },
-                                ),
-                                DropdownButton<ConditionalOperator>(
-                                  value: selectedOperator,
-                                  items: ConditionalOperator.values
-                                      .map((e) => DropdownMenuItem(
-                                            value: e,
-                                            child: Text(
-                                              conditionalOperatorToString(e),
-                                            ),
-                                          ))
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => selectedOperator = val);
-                                    }
-                                  },
-                                ),
-                                SizedBox(
-                                  width: 80,
-                                  child: TextField(
-                                    textAlign: TextAlign.center,
-                                    keyboardType:
-                                        TextInputType.numberWithOptions(
-                                            decimal: true),
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      border: OutlineInputBorder(),
-                                      hintText: selectedValue.toString(),
-                                      hintStyle: TextStyle(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    onChanged: (val) {
-                                      if (val.isNotEmpty) {
-                                        setState(() =>
-                                            selectedValue = double.parse(val));
-                                      }
-                                    },
-                                  ),
-                                ),
-                                Text(
-                                  widget.sensors
-                                      .firstWhere((sensor) =>
-                                          sensor.id == selectedSensor)
-                                      .unit,
-                                )
-                              ],
-                            ),
-                            SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Do',
+                            ] else ...[
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'When',
                                   style: TextStyle(
                                     color: lSectionTitle,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                DropdownButton<ActionType>(
-                                  value: selectedAction,
-                                  items: ActionType.values
-                                      .map((e) => DropdownMenuItem(
-                                            value: e,
-                                            child: Text(
-                                              actionTypeToString(e),
-                                            ),
-                                          ))
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setState(() => selectedAction = val);
-                                    }
-                                  },
+                              ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  DropdownButton<String>(
+                                    value: selectedSensor,
+                                    items: widget.sensors
+                                        .map((sensor) => DropdownMenuItem(
+                                              value: sensor.id,
+                                              child:
+                                                  Text(sensor.getSensorName()),
+                                            ))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() => selectedSensor = val);
+                                      }
+                                    },
+                                  ),
+                                  DropdownButton<ConditionalOperator>(
+                                    value: selectedOperator,
+                                    items: ConditionalOperator.values
+                                        .map((e) => DropdownMenuItem(
+                                              value: e,
+                                              child: Text(
+                                                conditionalOperatorToString(e),
+                                              ),
+                                            ))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() => selectedOperator = val);
+                                      }
+                                    },
+                                  ),
+                                  SizedBox(
+                                    width: 80,
+                                    child: TextField(
+                                      textAlign: TextAlign.center,
+                                      keyboardType:
+                                          TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        border: OutlineInputBorder(),
+                                        hintText: selectedValue.toString(),
+                                        hintStyle: TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      onChanged: (val) {
+                                        if (val.isNotEmpty) {
+                                          setState(() => selectedValue =
+                                              double.parse(val));
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  Text(
+                                    widget.sensors
+                                        .firstWhere((sensor) =>
+                                            sensor.id == selectedSensor)
+                                        .unit,
+                                  )
+                                ],
+                              ),
+                              SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Do',
+                                    style: TextStyle(
+                                      color: lSectionTitle,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  DropdownButton<ActionType>(
+                                    value: selectedAction,
+                                    items: availableActions
+                                        .map((e) => DropdownMenuItem(
+                                              value: e,
+                                              child: Text(
+                                                actionTypeToString(e),
+                                              ),
+                                            ))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() => selectedAction = val);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 20),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryButton,
                                 ),
-                              ],
-                            )
+                                onPressed: () async {
+                                  if (isConditionTab) {
+                                    // Save condition rule logic here
+                                    final newRule = ConditionalRule(
+                                      id: 'tmp',
+                                      sensorId: selectedSensor,
+                                      sensorType: SensorType.humidity,
+                                      operator: selectedOperator,
+                                      threshold: selectedValue,
+                                      unit: widget.sensors
+                                          .firstWhere((sensor) =>
+                                              sensor.id == selectedSensor)
+                                          .unit,
+                                      action: selectedAction,
+                                    );
+
+                                    try {
+                                      await APIs.addConditionalRule(
+                                          widget.deviceId, newRule);
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Rule added successfully'),
+                                            backgroundColor: successStatus,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Something went wrong'),
+                                            backgroundColor: debugStatus,
+                                          ),
+                                        );
+                                      }
+
+                                      debugPrint(e.toString());
+                                    }
+                                  } else {
+                                    // Save schedule rule logic here
+                                    final newRule = ScheduledRule(
+                                      id: 'tmp',
+                                      days: selectedDays.toList(),
+                                      time: selectedTime,
+                                      action: selectedAction,
+                                    );
+
+                                    try {
+                                      await APIs.addScheduledRule(
+                                          widget.deviceId, newRule);
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Rule added successfully'),
+                                            backgroundColor: successStatus,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content:
+                                                Text('Something went wrong'),
+                                            backgroundColor: debugStatus,
+                                          ),
+                                        );
+                                      }
+
+                                      debugPrint(e.toString());
+                                    }
+                                  }
+
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                  }
+                                  _fetchData();
+                                },
+                                child: Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    color: primaryButtonContent,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
 
                           // Schedule UI
@@ -517,7 +637,7 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
                                 ),
                                 DropdownButton<ActionType>(
                                   value: selectedAction,
-                                  items: ActionType.values
+                                  items: availableActions
                                       .map((e) => DropdownMenuItem(
                                             value: e,
                                             child: Text(
@@ -533,103 +653,109 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
                                 ),
                               ],
                             ),
+                            SizedBox(height: 20),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryButton,
+                              ),
+                              onPressed: () async {
+                                if (isConditionTab) {
+                                  // Save condition rule logic here
+                                  final newRule = ConditionalRule(
+                                    id: 'tmp',
+                                    sensorId: selectedSensor,
+                                    sensorType: SensorType.humidity,
+                                    operator: selectedOperator,
+                                    threshold: selectedValue,
+                                    unit: widget.sensors
+                                        .firstWhere((sensor) =>
+                                            sensor.id == selectedSensor)
+                                        .unit,
+                                    action: selectedAction,
+                                  );
+
+                                  try {
+                                    await APIs.addConditionalRule(
+                                        widget.deviceId, newRule);
+
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Rule added successfully'),
+                                          backgroundColor: successStatus,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text('Something went wrong'),
+                                          backgroundColor: debugStatus,
+                                        ),
+                                      );
+                                    }
+
+                                    debugPrint(e.toString());
+                                  }
+                                } else {
+                                  // Save schedule rule logic here
+                                  final newRule = ScheduledRule(
+                                    id: 'tmp',
+                                    days: selectedDays.toList(),
+                                    time: selectedTime,
+                                    action: selectedAction,
+                                  );
+
+                                  try {
+                                    await APIs.addScheduledRule(
+                                        widget.deviceId, newRule);
+
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content:
+                                              Text('Rule added successfully'),
+                                          backgroundColor: successStatus,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text('Something went wrong'),
+                                          backgroundColor: debugStatus,
+                                        ),
+                                      );
+                                    }
+
+                                    debugPrint(e.toString());
+                                  }
+                                }
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                                _fetchData();
+                              },
+                              child: Text(
+                                'Save',
+                                style: TextStyle(
+                                  color: primaryButtonContent,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
                           ],
                         ],
                       ),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryButton,
-                      ),
-                      onPressed: () async {
-                        if (isConditionTab) {
-                          // Save condition rule logic here
-                          final newRule = ConditionalRule(
-                            id: 'tmp',
-                            sensorId: selectedSensor,
-                            sensorType: SensorType.humidity,
-                            operator: selectedOperator,
-                            threshold: selectedValue,
-                            unit: widget.sensors
-                                .firstWhere(
-                                    (sensor) => sensor.id == selectedSensor)
-                                .unit,
-                            action: selectedAction,
-                          );
-
-                          try {
-                            await APIs.addConditionalRule(
-                                widget.deviceId, newRule);
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Rule added successfully'),
-                                  backgroundColor: successStatus,
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Something went wrong'),
-                                  backgroundColor: debugStatus,
-                                ),
-                              );
-                            }
-
-                            debugPrint(e.toString());
-                          }
-                        } else {
-                          // Save schedule rule logic here
-                          final newRule = ScheduledRule(
-                            id: 'tmp',
-                            days: selectedDays.toList(),
-                            time: selectedTime,
-                            action: selectedAction,
-                          );
-
-                          try {
-                            await APIs.addScheduledRule(
-                                widget.deviceId, newRule);
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Rule added successfully'),
-                                  backgroundColor: successStatus,
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Something went wrong'),
-                                  backgroundColor: debugStatus,
-                                ),
-                              );
-                            }
-
-                            debugPrint(e.toString());
-                          }
-                        }
-
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                        }
-                        _fetchData();
-                      },
-                      child: Text(
-                        'Save',
-                        style: TextStyle(
-                          color: primaryButtonContent,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
                   ],
                 ),
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hamsFE/controllers/apis.dart';
 import 'package:hamsFE/views/temp.dart';
 import 'package:hamsFE/views/user/user_home.dart';
+import 'package:hamsFE/views/user/user_notification.dart';
 import 'package:hamsFE/views/user/user_profile.dart';
 import 'constants.dart';
 
@@ -31,7 +32,7 @@ class _UserAppState extends State<UserApp> {
         _pages = <Widget>[
           UserHome(userName: user.name),
           Temp(),
-          Temp(),
+          UserNotification(),
           UserProfile(user: user),
         ];
         _isLoading = false;

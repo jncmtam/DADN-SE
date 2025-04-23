@@ -889,3 +889,34 @@
       "error": "Internal Server Error"
     }
     ```
+
+### 9. Get General Info
+- **Method**: `GET`
+- **URL**: `/api/cages/general-info`
+- **Headers**:
+  - `Authorization: Bearer <token>`
+- **Response**:
+  - **200 OK**: 
+    ```json
+    {
+      "active_devices": 3
+    }
+    ```
+  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - **403 Forbidden**: Permission denied 
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - **500 Internal Server Error**: 
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```

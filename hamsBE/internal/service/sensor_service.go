@@ -27,6 +27,10 @@ func (s *SensorService) GetSensorsByCageID(ctx context.Context, cageID string) (
 		return nil, err
 	}
 
+	if sensors == nil {
+		sensors = []*model.SensorResponse{}
+	}
+
 	return sensors, nil
 }
 

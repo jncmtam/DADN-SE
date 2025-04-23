@@ -75,6 +75,10 @@ func (s *AutomationService) GetRulesByDeviceID(ctx context.Context, deviceID str
 		return nil, err
 	}
 
+	if rules == nil {
+		rules = []*model.AutoRuleResByDeviceID{}
+	}
+
 	return rules, nil
 }
 

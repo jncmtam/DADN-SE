@@ -32,16 +32,19 @@ List<UDevice> sampleDevices = [
     id: '5ca7747f-2e0d-4eb5-9b62-3d17e9a77c43',
     name: 'Device 1',
     status: DeviceStatus.on,
+    type: DeviceType.on_off,
   ),
   UDevice(
     id: '5ca7747f-2e0d-4eb5-9b62-3d17e9a77ce3',
     name: 'Device 2',
     status: DeviceStatus.off,
+    type: DeviceType.refill,
   ),
   UDevice(
     id: '5ca7747f-2e0d-4eb5-9b62-3d17e9a773f4',
     name: 'Device 3',
     status: DeviceStatus.auto,
+    type: DeviceType.on_off,
   ),
 ];
 
@@ -88,6 +91,7 @@ UDetailedDevice sampleDetailedDevice = UDetailedDevice(
   id: '3d142e2a-8d48-4bc8-8ff1-eadf2a9211bf',
   name: 'Device 1',
   status: DeviceStatus.on,
+  type: DeviceType.on_off,
   condRules: [
     ConditionalRule(
       id: '5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b',
@@ -96,7 +100,7 @@ UDetailedDevice sampleDetailedDevice = UDetailedDevice(
       operator: ConditionalOperator.greaterThan,
       threshold: 25.0,
       unit: '°C',
-      action: ActionType.on,
+      action: ActionType.turn_on,
     ),
   ],
   schedRules: [
@@ -104,7 +108,7 @@ UDetailedDevice sampleDetailedDevice = UDetailedDevice(
       id: '5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b',
       days: [DayOfWeek.mon, DayOfWeek.tue],
       time: TimeOfDay(hour: 8, minute: 0),
-      action: ActionType.off,
+      action: ActionType.turn_off,
     ),
   ],
 );
