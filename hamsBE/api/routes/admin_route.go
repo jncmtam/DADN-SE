@@ -185,7 +185,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
-		// Thêm một thiết bị (device) mới vào chuồng.
+		// Thêm một thiết bị (device) mới 
 		admin.POST("/devices", func(c *gin.Context) {
 			var req struct {
 				Name   string `json:"name" binding:"required"`
@@ -234,6 +234,42 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 		
+		// Gán một thiết bị vào chuồng (assign a device to a cage)
+		admin.PUT("/devices/:deviceID/cage", func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+
+			var req struct {
+				CageID string `json:"cageID" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("[ERROR] Invalid request body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			err := deviceService.AssignDeviceToCage(c.Request.Context(), deviceID, req.CageID)
+			if err != nil {
+				log.Printf("[ERROR] Failed to assign device %s to cage %s: %v", deviceID, req.CageID, err)
+				switch {
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+				case errors.Is(err, service.ErrDeviceNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+				case errors.Is(err, service.ErrCageNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				}
+				return
+			}
+
+			log.Printf("[INFO] Device %s assigned to cage %s successfully", deviceID, req.CageID)
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Device assigned to cage successfully",
+				"id":      deviceID,
+				"cageID":  req.CageID,
+			})
+		})
 		
 
 		// Lấy 1 list device cho device drop down

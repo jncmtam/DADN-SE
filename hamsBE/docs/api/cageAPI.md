@@ -152,7 +152,69 @@
     }
     ```
 
-### 4. Delete A Device 
+### 4. Assign A Device To A Cage 
+ - **Method**: `PUT`
+ - **URL**: `/admin/devices/:deviceID/cage`
+ - **Headers**: 
+   - `Authorization: Bearer <token>`
+ - **Parameters**:
+     - deviceID (string, required): The ID of the device you want to assign.
+ - **Request Body**:
+   ```json
+   {
+         "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83"
+   }
+   ```
+ 
+ - **Response**:
+   - `200 OK`: Device successfully assigned to the cage:
+     ```json
+      {
+        "id": "6e60d331-8f97-4eef-a1bc-e467ac6ccb79",
+        "message": "Device assigned to cage successfully",
+        "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83"
+      }
+
+     ```
+   - `400 Bad Request`: Invalid request body
+     ```json
+     {
+       "error": "Invalid request body"
+     }
+     ```
+   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
+     ```json
+     {
+       "error": "Invalid or expired token"
+     }
+     ```
+   - `403 Forbidden`: Permission denied
+     ```json
+     {
+         "error": "Permission denied"
+     }
+     ```
+   - `404 Not Found`: Either device or cage not found
+      - Device not found
+        ```json
+        {
+            "error": "Device not found"
+        }
+        ```
+      - Cage not found
+        ```json
+        {
+            "error": "Cage not found"
+        }
+        ```
+   - `500 Internal Server Error`:
+     ```json
+     {
+       "error": "Internal Server Error"
+     }
+     ```
+
+### 5. Delete A Device 
 - **Method**: `DELETE`
 - **URL**: `/admin/devices/:deviceID`
 - **Headers**: 
@@ -192,7 +254,7 @@
     }
     ```
 
-### 5. Add A Sensor To A Cage 
+### 6. Add A Sensor To A Cage 
 - **Method**: `POST`
 - **URL**: `/admin/cages/:cageID/sensors`
 - **Headers**: 
@@ -247,7 +309,7 @@
     }
     ```
 
-### 6. Delete A Sensor 
+### 7. Delete A Sensor 
 - **Method**: `DELETE`
 - **URL**: `/admin/sensors/:sensorID`
 - **Headers**: 
@@ -287,7 +349,7 @@
     }
     ```
 
-### 7. Get Cages By User
+### 8. Get Cages By User
 - **Method**: `GET`
 - **URL**: `/admin/users/:id/cages`
 - **Headers**: 
@@ -332,7 +394,7 @@
     }
     ```
 
-### 8. Get Cage Details
+### 9. Get Cage Details
 - **Method**: `GET`
 - **URL**: `/admin/cages/:cageID`
 - **Headers**: 
@@ -388,7 +450,7 @@
     }
     ```
 
-### 9. Get List Available Devices
+### 10. Get List Available Devices
 - **Method**: `GET`
 - **URL**: `/admin/devices`
 - **Headers**:

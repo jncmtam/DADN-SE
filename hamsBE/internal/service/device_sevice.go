@@ -120,3 +120,38 @@ func (s *DeviceService) IsDeviceNameExists(ctx context.Context, name string) (bo
 	}
 	return s.DeviceRepo.DoesDeviceNameExist(ctx, name)
 }
+
+func (s *DeviceService) AssignDeviceToCage(ctx context.Context, deviceID, cageID string) error {
+	// Validate UUID
+	if err := IsValidUUID(deviceID); err != nil {
+		return ErrInvalidUUID
+	}
+	if err := IsValidUUID(cageID); err != nil {
+		return ErrInvalidUUID
+	}
+
+	// Check if device exists
+	exists, err := s.DeviceRepo.DeviceExists(ctx, deviceID)
+	if err != nil {
+		return fmt.Errorf("error checking device existence: %w", err)
+	}
+	if !exists {
+		return ErrDeviceNotFound
+	}
+
+	// Check if cage exists
+	exists, err = s.CageRepo.CageExists(ctx, cageID)
+	if err != nil {
+		return fmt.Errorf("error checking cage existence: %w", err)
+	}
+	if !exists {
+		return ErrCageNotFound
+	}
+
+	// Update device
+	if err := s.DeviceRepo.AssignToCage(ctx, deviceID, cageID); err != nil {
+		return fmt.Errorf("error assigning device to cage: %w", err)
+	}
+
+	return nil
+}

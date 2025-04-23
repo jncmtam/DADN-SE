@@ -166,3 +166,25 @@ func (r *DeviceRepository) DoesDeviceNameExist(ctx context.Context, name string)
 	err = r.db.QueryRowContext(ctx, query, name).Scan(&exists)
 	return exists, err
 }
+
+func (r *DeviceRepository) AssignToCage(ctx context.Context, deviceID, cageID string) error {
+	query, err := queries.GetQuery("assign_device_to_cage")
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.ExecContext(ctx, query, cageID, deviceID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("device not found")
+	}
+	return nil
+}
+
