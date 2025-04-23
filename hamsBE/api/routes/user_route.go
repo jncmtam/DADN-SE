@@ -69,6 +69,25 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, cages)
 		})
 
+		// Get General Info (number of active devices in all cages)
+		r.GET("/cages/general-info", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+		
+			count, err := deviceService.CountActiveDevicesByUserID(c.Request.Context(), userID.(string))
+			if err != nil {
+				log.Printf("[ERROR] Failed to count active devices for user %s: %v", userID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"active_devices": count})
+		})
+
 		// Lấy danh sách sensor trong 1 cage
 		r.GET("/cages/:cageID/sensors", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
 			cageID := c.Param("cageID")
@@ -119,12 +138,30 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
+			devicesWithActionType := []map[string]interface{}{}
+
+			for _, device := range devices {
+				deviceMap := map[string]interface{}{
+					"id":     device.ID,
+					"name":   device.Name,
+					"status": device.Status,
+				}
+		
+				if device.Type == "pump" {
+					deviceMap["action_type"] = "refill"
+				} else {
+					deviceMap["action_type"] = "on_off"
+				}
+		
+				devicesWithActionType = append(devicesWithActionType, deviceMap)
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
 				"status": cage.Status,
 				"sensors": sensors,
-				"devices": devices,
+				"devices": devicesWithActionType,
 			})
 		})
 
@@ -153,10 +190,16 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			} 
 
+			var action_type string = "on_off";
+			if device.Type == "pump" {
+				action_type = "refill"
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
 				"name": device.Name,
 				"status": device.Status,
+				"action_type": action_type,
 				"automation_rule": automationRules,
 				"schedule_rule": scheduleRules,
 			})

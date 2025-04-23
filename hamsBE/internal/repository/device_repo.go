@@ -58,7 +58,7 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
     for rows.Next() {
         device := &model.DeviceResponse{}
         if err := rows.Scan(
-            &device.ID, &device.Name, &device.Status,
+            &device.ID, &device.Name, &device.Status, &device.Type,
         ); err != nil {
             return nil, err
         }
@@ -69,8 +69,11 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
 }
 
 func (r *DeviceRepository) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
-	// Lấy query từ queries (hoặc bạn có thể viết trực tiếp query ở đây)
-	query := "SELECT id, name FROM devices WHERE cage_id IS NULL"
+	query, err := queries.GetQuery("get_devices_assignable")
+	if err != nil {
+		return nil, err
+	}	
+	
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -98,7 +101,7 @@ func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (
 
 	device := &model.DeviceResponse{}
 	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(
-		&device.ID, &device.Name, &device.Status,
+		&device.ID, &device.Name, &device.Status, &device.Type,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -188,3 +191,17 @@ func (r *DeviceRepository) AssignToCage(ctx context.Context, deviceID, cageID st
 	return nil
 }
 
+func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID string) (int, error) {
+	query, err := queries.GetQuery("count_active_devices_by_user")
+	if err != nil {
+		return 0, err
+	}
+
+	var count int
+	err = r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

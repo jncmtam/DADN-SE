@@ -271,7 +271,6 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 		
-
 		// Lấy 1 list device cho device drop down
 		admin.GET("/devices", func(c *gin.Context) {
 			deviceList, err := deviceService.GetDevicesAssignable(c.Request.Context())
@@ -282,14 +281,24 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 			c.JSON(http.StatusOK, deviceList)
 		})
-		
-		// Thêm một cảm biến (sensor) mới vào chuồng 
-		admin.POST("/cages/:cageID/sensors", func(c *gin.Context) {
-			cageID := c.Param("cageID")
 
+		// Lấy 1 list sensor cho sensor drop down
+		admin.GET("/sensors", func(c *gin.Context) {
+			sensorList, err := sensorService.GetSensorsAssignable(c.Request.Context())
+			if err != nil {
+				log.Printf("[ERROR] Failed to fetch assignable sensors: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			c.JSON(http.StatusOK, sensorList)
+		})
+
+		// Thêm một cảm biến (sensor) mới
+		admin.POST("/sensors", func(c *gin.Context) {
 			var req struct {
 				Name string `json:"name" binding:"required"`
 				Type string `json:"type" binding:"required,oneof=temperature humidity light distance"`
+				CageID string `json:"cageID"` // cageID có thể null
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
 				log.Printf("[ERROR] Invalid request body: %v", err)
@@ -297,16 +306,16 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
-			// Kiểm tra trùng tên sensor trong cùng chuồng
-			exists, err := sensorService.IsSensorNameExists(c.Request.Context(), cageID, req.Name)
+			// Kiểm tra trùng tên sensor
+			exists, err := sensorService.IsSensorNameExists(c.Request.Context(), req.Name)
 			if err != nil {
 				log.Printf("[ERROR] Failed to check sensor name uniqueness: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			}
 			if exists {
-				log.Printf("[ERROR] Sensor name already exists in cage %s: %s", cageID, req.Name)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Sensor name already exists in this cage"})
+				log.Printf("[ERROR] Sensor name already exists globally: %s", req.Name)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Sensor name already exists"})
 				return
 			}
 
@@ -324,29 +333,67 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 			default:
 				unit = "unknown"
 			}
-
-			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, unit, cageID)
+		
+			// Tạo thiết bị
+			sensor, err := sensorService.AddSensor(c.Request.Context(), req.Name, req.Type, unit, req.CageID)
 			if err != nil {
 				switch {
 					case errors.Is(err, service.ErrInvalidUUID): 
-						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", req.CageID)
 						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
 					case errors.Is(err, service.ErrCageNotFound):
-						log.Printf("[ERROR] Cage not found: %s", cageID)
+						log.Printf("[ERROR] Cage not found: %s", req.CageID)
 						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
 					default:
-						log.Printf("[ERROR] Failed to creating sensor for cage %s (name: %s, type: %s): %v", cageID, req.Name, req.Type, err)
+						log.Printf("[ERROR] Failed to creating sensor for cage %s (name: %s, type: %s): %v", req.CageID, req.Name, req.Type, err)
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 					}
 					return
 			}
-
+		
 			log.Printf("[INFO] Sensor created successfully: (id: %s, name: %s)", sensor.ID, sensor.Name)
 
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "Sensor created successfully",
 				"id":      sensor.ID,
 				"name":    sensor.Name,
+			})
+		})
+
+		// Gán một cảm biến vào chuồng (assign a sensor to a cage)
+		admin.PUT("/sensors/:sensorID/cage", func(c *gin.Context) {
+			sensorID := c.Param("sensorID")
+
+			var req struct {
+				CageID string `json:"cageID" binding:"required"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("[ERROR] Invalid request body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			err := sensorService.AssignSensorToCage(c.Request.Context(), sensorID, req.CageID)
+			if err != nil {
+				log.Printf("[ERROR] Failed to assign sensor %s to cage %s: %v", sensorID, req.CageID, err)
+				switch {
+				case errors.Is(err, service.ErrInvalidUUID):
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+				case errors.Is(err, service.ErrSensorNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": "Sensor not found"})
+				case errors.Is(err, service.ErrCageNotFound):
+					c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+				default:
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				}
+				return
+			}
+
+			log.Printf("[INFO] Sensor %s assigned to cage %s successfully", sensorID, req.CageID)
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Sensor assigned to cage successfully",
+				"id":      sensorID,
+				"cageID":  req.CageID,
 			})
 		})
 
@@ -465,12 +512,23 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 
+			devicesRes := []map[string]interface{}{}
+
+			for _, device := range devices {
+				deviceMap := map[string]interface{}{
+					"id":     device.ID,
+					"name":   device.Name,
+					"status": device.Status,
+				}
+				devicesRes = append(devicesRes, deviceMap)
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"id": cage.ID,
 				"name": cage.Name,
 				"status": cage.Status,
 				"sensors": sensors,
-				"devices": devices,
+				"devices": devicesRes,
 			})
 		})
 

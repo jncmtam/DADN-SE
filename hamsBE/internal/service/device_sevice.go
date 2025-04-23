@@ -57,6 +57,10 @@ func (s *DeviceService) GetDevicesByCageID(ctx context.Context, cageID string) (
 		return nil, err
 	}
 
+	if devices == nil {
+		devices = []*model.DeviceResponse{}
+	}
+
 	return devices, nil
 }
 
@@ -73,13 +77,15 @@ func (s *DeviceService) GetDeviceByID(ctx context.Context, deviceID string) (*mo
 }
 
 func (s *DeviceService) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
-	// Gọi repository để lấy danh sách thiết bị có thể phân công
 	devices, err := s.DeviceRepo.GetDevicesAssignable(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Trả về danh sách thiết bị
+	if devices == nil {
+		devices = []*model.DeviceListResponse{}
+	}
+
 	return devices, nil
 }
 
@@ -154,4 +160,8 @@ func (s *DeviceService) AssignDeviceToCage(ctx context.Context, deviceID, cageID
 	}
 
 	return nil
+}
+
+func (s *DeviceService) CountActiveDevicesByUserID(ctx context.Context, userID string) (int, error) {
+	return s.DeviceRepo.CountActiveDevicesByUser(ctx, userID)
 }

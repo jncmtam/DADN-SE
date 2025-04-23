@@ -69,6 +69,10 @@ func (s *CageService) GetCagesByUserID(ctx context.Context, userID string) ([]*m
 		return nil, err
 	}
 
+	if cages == nil {
+        cages = []*model.CageResponse{}
+    }
+
 	return cages, nil
 }
 
