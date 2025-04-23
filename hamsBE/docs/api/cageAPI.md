@@ -98,18 +98,17 @@
     }
     ```
 
-### 3. Add A Device To A Cage 
+### 3. Add A Device  
 - **Method**: `POST`
-- **URL**: `/admin/cages/:cageID/devices`
+- **URL**: `/admin/devices`
 - **Headers**: 
   - `Authorization: Bearer <token>`
-- **Parameters**:
-    - cageID (string, required): ID của chuồng muốn thêm thiết bị.
 - **Request Body**:
   ```json
   {
     "name": "Device Name",
-    "type": "display" // display lock light pump fan
+    "type": "display", // display lock light pump fan
+    "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83" // có thể null
   }
   ```
   
@@ -153,7 +152,69 @@
     }
     ```
 
-### 4. Delete A Device 
+### 4. Assign A Device To A Cage 
+ - **Method**: `PUT`
+ - **URL**: `/admin/devices/:deviceID/cage`
+ - **Headers**: 
+   - `Authorization: Bearer <token>`
+ - **Parameters**:
+     - deviceID (string, required): The ID of the device you want to assign.
+ - **Request Body**:
+   ```json
+   {
+         "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83"
+   }
+   ```
+ 
+ - **Response**:
+   - `200 OK`: Device successfully assigned to the cage:
+     ```json
+      {
+        "id": "6e60d331-8f97-4eef-a1bc-e467ac6ccb79",
+        "message": "Device assigned to cage successfully",
+        "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83"
+      }
+
+     ```
+   - `400 Bad Request`: Invalid request body
+     ```json
+     {
+       "error": "Invalid request body"
+     }
+     ```
+   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
+     ```json
+     {
+       "error": "Invalid or expired token"
+     }
+     ```
+   - `403 Forbidden`: Permission denied
+     ```json
+     {
+         "error": "Permission denied"
+     }
+     ```
+   - `404 Not Found`: Either device or cage not found
+      - Device not found
+        ```json
+        {
+            "error": "Device not found"
+        }
+        ```
+      - Cage not found
+        ```json
+        {
+            "error": "Cage not found"
+        }
+        ```
+   - `500 Internal Server Error`:
+     ```json
+     {
+       "error": "Internal Server Error"
+     }
+     ```
+
+### 5. Delete A Device 
 - **Method**: `DELETE`
 - **URL**: `/admin/devices/:deviceID`
 - **Headers**: 
@@ -193,7 +254,7 @@
     }
     ```
 
-### 5. Add A Sensor To A Cage 
+### 6. Add A Sensor To A Cage 
 - **Method**: `POST`
 - **URL**: `/admin/cages/:cageID/sensors`
 - **Headers**: 
@@ -248,7 +309,7 @@
     }
     ```
 
-### 6. Delete A Sensor 
+### 7. Delete A Sensor 
 - **Method**: `DELETE`
 - **URL**: `/admin/sensors/:sensorID`
 - **Headers**: 
@@ -288,7 +349,7 @@
     }
     ```
 
-### 7. Get Cages By User
+### 8. Get Cages By User
 - **Method**: `GET`
 - **URL**: `/admin/users/:id/cages`
 - **Headers**: 
@@ -333,7 +394,7 @@
     }
     ```
 
-### 8. Get Cage Details
+### 9. Get Cage Details
 - **Method**: `GET`
 - **URL**: `/admin/cages/:cageID`
 - **Headers**: 
@@ -347,6 +408,7 @@
     {
         "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
         "name": "Cage 1",
+        "status": "on", // off
         "devices": [
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
@@ -358,7 +420,6 @@
             {
                 "id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
                 "type": "temperature",
-                "value": 0,
                 "unit": "oC" 
             }
         ]
@@ -389,7 +450,7 @@
     }
     ```
 
-### 9. Get List Available Devices
+### 10. Get List Available Devices
 - **Method**: `GET`
 - **URL**: `/admin/devices`
 - **Headers**:
@@ -541,10 +602,10 @@
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
                 "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b", 
-                "sensor_type": "temperature",
+                "sensor_type": "temperature", // humidity light distance
                 "condition": ">", // > < =
                 "threshold": 30, // float
-                "unit": "oC", // % lux cm
+                "unit": "oC", // % lux %
                 "action": "turn_on", // turn_off refill
             }
         ],

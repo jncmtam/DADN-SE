@@ -24,8 +24,15 @@ func (r *DeviceRepository) CreateDevice(ctx context.Context, name, deviceType, c
 		return nil, err
 	}
 
+	var cageIDValue interface{}
+	if cageID == "" {
+		cageIDValue = nil // Gán NULL
+	} else {
+		cageIDValue = cageID
+	}
+
 	device := &model.Device{}
-	err = r.db.QueryRowContext(ctx, query, name, deviceType, cageID).Scan(
+	err = r.db.QueryRowContext(ctx, query, name, deviceType, cageIDValue).Scan(
 		&device.ID, &device.Name,
 	)
 	if err != nil {
@@ -148,3 +155,36 @@ func (r *DeviceRepository) CheckType(ctx context.Context, deviceID string) (stri
 	}
 	return deviceType, err
 }
+
+
+func (r *DeviceRepository) DoesDeviceNameExist(ctx context.Context, name string) (bool, error) {
+	query, err := queries.GetQuery("check_device_name_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, name).Scan(&exists)
+	return exists, err
+}
+
+func (r *DeviceRepository) AssignToCage(ctx context.Context, deviceID, cageID string) error {
+	query, err := queries.GetQuery("assign_device_to_cage")
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.ExecContext(ctx, query, cageID, deviceID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("device not found")
+	}
+	return nil
+}
+

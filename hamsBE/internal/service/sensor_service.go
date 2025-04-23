@@ -76,3 +76,13 @@ func (s *SensorService) DeleteSensor(ctx context.Context, sensorID string) error
 
 	return s.SensorRepo.DeleteSensorByID(ctx, sensorID)
 }
+
+func (s *SensorService) IsSensorNameExists(ctx context.Context, cageID, name string) (bool, error) {
+	if cageID == "" {
+		return false, errors.New("cageID is required")
+	}
+	if err := IsValidUUID(cageID); err != nil {
+		return false, fmt.Errorf("%w: invalid cageID format", ErrInvalidUUID)
+	}
+	return s.SensorRepo.DoesSensorNameExist(ctx, cageID, name)
+}

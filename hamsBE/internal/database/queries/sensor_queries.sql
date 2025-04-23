@@ -13,3 +13,8 @@ DELETE FROM sensors WHERE id = $1;
 
 -- name: check_sensor_exists
 SELECT EXISTS(SELECT 1 FROM sensors WHERE id = $1);
+
+-- name: check_sensor_name_exists
+SELECT EXISTS (
+  SELECT 1 FROM sensors WHERE cage_id = $1 AND name = $2
+);
