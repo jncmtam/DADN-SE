@@ -98,18 +98,17 @@
     }
     ```
 
-### 3. Add A Device To A Cage 
+### 3. Add A Device  
 - **Method**: `POST`
-- **URL**: `/admin/cages/:cageID/devices`
+- **URL**: `/admin/devices`
 - **Headers**: 
   - `Authorization: Bearer <token>`
-- **Parameters**:
-    - cageID (string, required): ID của chuồng muốn thêm thiết bị.
 - **Request Body**:
   ```json
   {
     "name": "Device Name",
-    "type": "display" // display lock light pump fan
+    "type": "display", // display lock light pump fan
+    "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83" // có thể null
   }
   ```
   
@@ -347,6 +346,7 @@
     {
         "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
         "name": "Cage 1",
+        "status": "on", // off
         "devices": [
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
@@ -358,7 +358,6 @@
             {
                 "id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b",
                 "type": "temperature",
-                "value": 0,
                 "unit": "oC" 
             }
         ]
@@ -541,10 +540,10 @@
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
                 "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b", 
-                "sensor_type": "temperature",
+                "sensor_type": "temperature", // humidity light distance
                 "condition": ">", // > < =
                 "threshold": 30, // float
-                "unit": "oC", // % lux cm
+                "unit": "oC", // % lux %
                 "action": "turn_on", // turn_off refill
             }
         ],

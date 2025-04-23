@@ -77,3 +77,13 @@ func (r *SensorRepository) SensorExists(ctx context.Context, sensorID string) (b
 	err = r.db.QueryRowContext(ctx, query, sensorID).Scan(&exists)
 	return exists, err
 }
+
+func (r *SensorRepository) DoesSensorNameExist(ctx context.Context, cageID, name string) (bool, error) {
+	query, err := queries.GetQuery("check_sensor_name_exists")
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, cageID, name).Scan(&exists)
+	return exists, err
+}

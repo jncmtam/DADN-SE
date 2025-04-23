@@ -91,9 +91,18 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			
 			cage, err := cageService.GetACageByCageID(c.Request.Context(), cageID)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
+				switch {
+					case errors.Is(err, service.ErrInvalidUUID): 
+						log.Printf("[ERROR] Invalid UUID format for cageID: %s", cageID)
+						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+					case errors.Is(err, service.ErrCageNotFound):
+						log.Printf("[ERROR] Cage not found: %s", cageID)
+						c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+					default:
+						log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+					}
+					return
 			}
 
 			sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cageID)

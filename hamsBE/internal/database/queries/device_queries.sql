@@ -26,3 +26,8 @@ SELECT EXISTS(SELECT 1 FROM devices WHERE id = $1);
 
 -- name: check_device_type
 SELECT type FROM devices WHERE id = $1 LIMIT 1;
+
+-- name: check_device_name_exists
+SELECT EXISTS (
+  SELECT 1 FROM devices WHERE name = $1
+);
