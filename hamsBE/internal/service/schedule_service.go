@@ -65,6 +65,10 @@ func (s *ScheduleService) GetRulesByDeviceID(ctx context.Context, deviceID strin
 		return nil, err
 	}
 
+	if rules == nil {
+		rules = []*model.ScheduleResGetByDeviceID{}
+	}
+
 	return rules, nil
 }
 

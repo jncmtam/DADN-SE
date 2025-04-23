@@ -188,3 +188,17 @@ func (r *DeviceRepository) AssignToCage(ctx context.Context, deviceID, cageID st
 	return nil
 }
 
+func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID string) (int, error) {
+	query, err := queries.GetQuery("count_active_devices_by_user")
+	if err != nil {
+		return 0, err
+	}
+
+	var count int
+	err = r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

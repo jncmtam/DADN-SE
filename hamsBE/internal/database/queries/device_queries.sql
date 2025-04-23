@@ -34,3 +34,9 @@ SELECT EXISTS (
 
 -- name: assign_device_to_cage
 UPDATE devices SET cage_id = $1 WHERE id = $2;
+
+-- name: count_active_devices_by_user
+SELECT COUNT(*)
+FROM devices d
+JOIN cages c ON d.cage_id = c.id
+WHERE c.user_id = $1 AND d.status IN ('on', 'auto');
