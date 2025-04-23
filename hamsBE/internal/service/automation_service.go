@@ -22,7 +22,7 @@ func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.A
 		return nil, errors.New("automation rule is required")
 	}
 	if rule.SensorID == "" || rule.DeviceID == "" || rule.Condition == "" ||
-		rule.Threshold == 0 || rule.Unit == "" || rule.Action == "" {
+		rule.Threshold == 0 || rule.Action == "" {
 		return nil, errors.New("all fields are required")
 	}
 
@@ -73,6 +73,10 @@ func (s *AutomationService) GetRulesByDeviceID(ctx context.Context, deviceID str
 	rules, err := s.AutomationRepo.GetAutomationRulesByDeviceID(ctx, deviceID)
 	if err != nil {
 		return nil, err
+	}
+
+	if rules == nil {
+		rules = []*model.AutoRuleResByDeviceID{}
 	}
 
 	return rules, nil

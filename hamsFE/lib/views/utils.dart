@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hamsFE/views/constants.dart';
 import 'package:intl/intl.dart';
 
 class Utils {
@@ -24,16 +25,22 @@ class Utils {
             '$label: ',
             style: TextStyle(
               fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: lPrimaryText,
             ),
           ),
           Flexible(
             child: Text(
               Utils.processDisplayValue(value),
               textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 16,
+                color: lNormalText,
+              ),
             ),
           )
         ],
       ),
     );
   }
-  }
+}

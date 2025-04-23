@@ -27,11 +27,15 @@ func (s *SensorService) GetSensorsByCageID(ctx context.Context, cageID string) (
 		return nil, err
 	}
 
+	if sensors == nil {
+		sensors = []*model.SensorResponse{}
+	}
+
 	return sensors, nil
 }
 
-func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, cageID string) (*model.Sensor, error) {
-	if name == "" || sensorType == "" || cageID == ""{
+func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, unit, cageID string) (*model.Sensor, error) {
+	if name == "" || sensorType == "" || unit == "" || cageID == ""{
 		return nil, errors.New("name, sensorType and cageID are required")
 	}
 
@@ -48,7 +52,7 @@ func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, cageID 
 	}
 
 
-	sensor, err := s.SensorRepo.CreateSensor(ctx, name, sensorType, cageID)
+	sensor, err := s.SensorRepo.CreateSensor(ctx, name, sensorType, unit, cageID)
 	if err != nil {
 		return nil, err
 	}
@@ -75,4 +79,14 @@ func (s *SensorService) DeleteSensor(ctx context.Context, sensorID string) error
 
 
 	return s.SensorRepo.DeleteSensorByID(ctx, sensorID)
+}
+
+func (s *SensorService) IsSensorNameExists(ctx context.Context, cageID, name string) (bool, error) {
+	if cageID == "" {
+		return false, errors.New("cageID is required")
+	}
+	if err := IsValidUUID(cageID); err != nil {
+		return false, fmt.Errorf("%w: invalid cageID format", ErrInvalidUUID)
+	}
+	return s.SensorRepo.DoesSensorNameExist(ctx, cageID, name)
 }

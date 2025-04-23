@@ -1,11 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hamsFE/controllers/apis.dart';
 import 'package:hamsFE/views/temp.dart';
 import 'package:hamsFE/views/user/user_home.dart';
+import 'package:hamsFE/views/user/user_notification.dart';
 import 'package:hamsFE/views/user/user_profile.dart';
-import '../models/user.dart';
-import 'admin/admin_profile.dart';
 import 'constants.dart';
 
 class UserApp extends StatefulWidget {
@@ -18,28 +16,26 @@ class UserApp extends StatefulWidget {
 class _UserAppState extends State<UserApp> {
   int _selectedIndex = 0;
   late final List<Widget> _pages;
-  late final User _user;
   late bool _isLoading;
 
   @override
   void initState() {
     super.initState();
     _isLoading = true;
-    _fetchUserData();
+    _fetchData();
   }
 
-  Future<void> _fetchUserData() async {
+  Future<void> _fetchData() async {
     try {
-      User fetchedUser = await APIs.getUserInfo();
+      final user = await APIs.getUserInfo();
       setState(() {
-        _user = fetchedUser;
-        _isLoading = false;
         _pages = <Widget>[
-          UserHome(user: _user),
+          UserHome(userName: user.name),
           Temp(),
-          Temp(),
-          UserProfile(user: _user),
+          UserNotification(),
+          UserProfile(user: user),
         ];
+        _isLoading = false;
       });
     } catch (e) {
       setState(() {
@@ -55,9 +51,7 @@ class _UserAppState extends State<UserApp> {
         );
       }
 
-      if (kDebugMode) {
-        print(e);
-      }
+      debugPrint(e.toString());
     }
   }
 
@@ -72,41 +66,37 @@ class _UserAppState extends State<UserApp> {
     if (_isLoading) {
       return Scaffold(
         body: Center(
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(color: loadingStatus),
         ),
       );
     }
     return Scaffold(
-      body: Stack(
-        children: [
-          _pages[_selectedIndex], // Ensure each page has its own Scaffold
-          // Floating Bottom Navigation Bar
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: BottomNavigationBar(
-                  currentIndex: _selectedIndex,
-                  selectedItemColor: selectedItem,
-                  unselectedItemColor: unselectedItem,
-                  backgroundColor: kBase2,
-                  onTap: _onItemTapped,
-                  type: BottomNavigationBarType.fixed,
-                  showUnselectedLabels: false,
-                  showSelectedLabels: false,
-                  items: [
-                    BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-                    BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Statistics'),
-                    BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'Notifications'),
-                    BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-                  ],
-                ),
-              ),
-            ),
+      body: _pages[_selectedIndex],
+      backgroundColor: lappBackground,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            selectedItemColor: selectedTab,
+            unselectedItemColor: unselectedTab,
+            backgroundColor: kBase2,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            showUnselectedLabels: false,
+            showSelectedLabels: false,
+            items: [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.bar_chart), label: 'Statistics'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.notifications), label: 'Notifications'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Profile'),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

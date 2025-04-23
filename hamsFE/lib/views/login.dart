@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../controllers/session.dart';
 import 'constants.dart';
@@ -61,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Welcome back!',
                   style: TextStyle(
                     fontSize: 20,
-                    color: primaryText,
+                    color: lPrimaryText,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -183,9 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               );
                             }
-                            if (kDebugMode) {
-                              print('Error: $e');
-                            }
+                            debugPrint('Error: $e');
                           }
                         },
                         child: Text(
@@ -202,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                           fontStyle: FontStyle.italic,
                           decoration: TextDecoration.underline,
-                          decorationColor: secondaryText,
+                          decorationColor: lSecondaryText,
                         ),
                       ),
                       onPressed: () {

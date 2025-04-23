@@ -35,9 +35,32 @@ class AdminProfile extends StatelessWidget {
             children: [
               // Avatar
               Center(
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundImage: NetworkImage(user.avatarUrl),
+                child: FutureBuilder(
+                  future: APIs.getUserAvatar(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircleAvatar(
+                        radius: 70,
+                        backgroundColor: lcardBackground,
+                        child: CircularProgressIndicator(),
+                      );
+                    } else if (snapshot.hasError) {
+                      return CircleAvatar(
+                        radius: 70,
+                        backgroundColor: lcardBackground,
+                        child: Icon(Icons.error),
+                      );
+                    } else {
+                      return ClipOval(
+                        child: Image.memory(
+                          snapshot.data!,
+                          width: 140,
+                          height: 140,
+                          fit: BoxFit.fill,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
               SizedBox(height: 16),
@@ -125,10 +148,7 @@ class AdminProfile extends StatelessWidget {
           title: Text(
             'Change Password',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: primaryText
-            ),
+                fontSize: 20, fontWeight: FontWeight.bold, color: lPrimaryText),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -169,14 +189,17 @@ class AdminProfile extends StatelessWidget {
                 String newPassword = newPasswdController.text;
 
                 try {
-                  bool success = await APIs.changePassword(currentPassword, newPassword);
+                  bool success =
+                      await APIs.changePassword(currentPassword, newPassword);
 
                   if (!context.mounted) return;
 
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(success ? 'Password changed successfully' : 'Failed to change password'),
+                      content: Text(success
+                          ? 'Password changed successfully'
+                          : 'Failed to change password'),
                       backgroundColor: success ? successStatus : failStatus,
                     ),
                   );

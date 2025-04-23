@@ -32,3 +32,9 @@ SELECT COUNT(*)
 FROM devices d JOIN sensors s 
     ON d.cage_id = s.cage_id
 WHERE d.id = $1 AND s.id = $2;
+
+-- name: check_cage_name_exists
+SELECT EXISTS (
+  SELECT 1 FROM cages WHERE user_id = $1 AND name = $2
+);
+

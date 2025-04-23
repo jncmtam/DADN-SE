@@ -1,7 +1,7 @@
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sensor_type') THEN
-        CREATE TYPE sensor_type AS ENUM ('temperature', 'humidity', 'light', 'distance', 'weight');
+        CREATE TYPE sensor_type AS ENUM ('temperature', 'humidity', 'light', 'distance');
     END IF;
 END $$;
 
