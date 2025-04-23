@@ -118,7 +118,7 @@ class _UserHomeState extends State<UserHome> {
           ),
         ),
       ),
-      backgroundColor: kBase0,
+      backgroundColor: lappBackground,
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -135,17 +135,20 @@ class _UserHomeState extends State<UserHome> {
 
   // active devices count
   Widget _buildGeneralInfo() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: kBase2,
-      ),
-      child: Text(
-        '$_activeDeviceCount active devices',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          color: kBase0,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: primaryButton,
+        ),
+        child: Text(
+          '$_activeDeviceCount active devices',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: primaryButtonContent,
+          ),
         ),
       ),
     );
@@ -161,7 +164,7 @@ class _UserHomeState extends State<UserHome> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: lPrimaryText,
+              color: lSectionTitle,
             ),
           ),
           SizedBox(height: 10),

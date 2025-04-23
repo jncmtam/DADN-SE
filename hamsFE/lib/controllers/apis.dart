@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:hamsFE/controllers/session.dart';
 import 'package:hamsFE/models/cage.dart';
 import 'package:hamsFE/models/device.dart';
@@ -47,8 +48,9 @@ class APIs {
   }
 
   static Future<User> getUserInfo() async {
-    final userId = SessionManager().getUserId();
-    Uri url = Uri.parse('$baseUrl/user/$userId');
+    // final userId = SessionManager().getUserId();
+    // Uri url = Uri.parse('$baseUrl/user/$userId');
+    Uri url = Uri.parse('$baseUrl/profile');
 
     final response = await http.get(
       url,
@@ -59,10 +61,29 @@ class APIs {
     );
 
     if (response.statusCode == 200) {
-      return User.fromJson(jsonDecode(response.body));
+      return User.fromJson(jsonDecode(response.body)['user']);
     } else {
       final error = jsonDecode(response.body)['error'];
       throw Exception('Failed to get user info: $error');
+    }
+  }
+
+  static Future<Uint8List> getUserAvatar() async {
+    Uri url = Uri.parse('$baseUrl/profile/avatar');
+
+    final response = await http.get(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      final error = jsonDecode(response.body)['error'];
+      throw Exception('Failed to get user avatar: $error');
     }
   }
 
@@ -160,25 +181,25 @@ class APIs {
   }
 
   static Future<List<UCage>> getUserCages() async {
-    return sampleCages;
+    // return sampleCages;
 
-    // Uri url = Uri.parse('$baseUrl/user/cages');
+    Uri url = Uri.parse('$baseUrl/cages');
 
-    // final response = await http.get(
-    //   url,
-    //   headers: <String, String>{
-    //     'Content-Type': 'application/json',
-    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
-    //   },
-    // );
+    final response = await http.get(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+    );
 
-    // if (response.statusCode == 200) {
-    //   List<dynamic> cages = jsonDecode(response.body);
-    //   return cages.map((cage) => UCage.fromJson(cage)).toList();
-    // } else {
-    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-    //   throw Exception('Failed to get cages: $error');
-    // }
+    if (response.statusCode == 200) {
+      List<dynamic> cages = jsonDecode(response.body);
+      return cages.map((cage) => UCage.fromJson(cage)).toList();
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get cages: $error');
+    }
   }
 
   static Future<void> enableCage(String cageId) async {

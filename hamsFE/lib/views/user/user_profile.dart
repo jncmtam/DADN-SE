@@ -12,6 +12,7 @@ class UserProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: lappBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 60,
@@ -28,6 +29,7 @@ class UserProfile extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -35,9 +37,32 @@ class UserProfile extends StatelessWidget {
             children: [
               // Avatar
               Center(
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundImage: NetworkImage(user.avatarUrl),
+                child: FutureBuilder(
+                  future: APIs.getUserAvatar(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircleAvatar(
+                        radius: 70,
+                        backgroundColor: lcardBackground,
+                        child: CircularProgressIndicator(),
+                      );
+                    } else if (snapshot.hasError) {
+                      return CircleAvatar(
+                        radius: 70,
+                        backgroundColor: lcardBackground,
+                        child: Icon(Icons.error),
+                      );
+                    } else {
+                      return ClipOval(
+                        child: Image.memory(
+                          snapshot.data!,
+                          width: 140,
+                          height: 140,
+                          fit: BoxFit.fill,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
               SizedBox(height: 16),
@@ -45,9 +70,9 @@ class UserProfile extends StatelessWidget {
               Text(
                 user.name,
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: lPrimaryText,
                 ),
               ),
               SizedBox(height: 8),
@@ -56,57 +81,73 @@ class UserProfile extends StatelessWidget {
                 user.email,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.black54,
+                  color: lNormalText,
                 ),
               ),
               SizedBox(height: 16),
               // Profile Information
-              Utils.displayInfo('User ID', user.id),
+              // Utils.displayInfo('ID', user.id),
               Divider(),
               Utils.displayInfo('Role', user.role),
               Divider(),
               Utils.displayInfo('Joined on', user.joinDate),
-              SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () => _showChangePasswordDialog(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: secondaryButton,
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                ),
-                child: Text(
-                  'Change Password',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: secondaryButtonContent,
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-              // Logout Button
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    await APIs.logout();
-                    if (context.mounted) {
-                      Navigator.pushReplacementNamed(context, '/login');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+              Divider(),
+              Utils.displayInfo(
+                  'Email Verified', user.emailVerified ? 'Yes' : 'No'),
+              Divider(),
+              Row(
+                children: [
+                  // Change Password Button
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () => _showChangePasswordDialog(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: secondaryButton,
+                        padding:
+                            EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Change Password',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: secondaryButtonContent,
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    'Logout',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
+                  SizedBox(width: 10),
+                  // Logout Button
+                  Expanded(
+                    flex: 1,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await APIs.logout();
+                        if (context.mounted) {
+                          Navigator.pushReplacementNamed(context, '/login');
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding:
+                            EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -119,6 +160,7 @@ class UserProfile extends StatelessWidget {
     TextEditingController currentPasswdController = TextEditingController();
     TextEditingController newPasswdController = TextEditingController();
     showDialog(
+      barrierDismissible: false,
       context: context,
       builder: (context) {
         return AlertDialog(

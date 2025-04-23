@@ -69,40 +69,34 @@ class _UserAppState extends State<UserApp> {
         ),
       );
     }
-    return Stack(
-      children: [
-        _pages[_selectedIndex], // each page has its own Scaffold
-        // Floating Bottom Navigation Bar
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(25),
-              child: BottomNavigationBar(
-                currentIndex: _selectedIndex,
-                selectedItemColor: selectedTab,
-                unselectedItemColor: unselectedTab,
-                backgroundColor: kBase2,
-                onTap: _onItemTapped,
-                type: BottomNavigationBarType.fixed,
-                showUnselectedLabels: false,
-                showSelectedLabels: false,
-                items: [
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.home), label: 'Home'),
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.bar_chart), label: 'Statistics'),
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.notifications), label: 'Notifications'),
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.person), label: 'Profile'),
-                ],
-              ),
-            ),
+    return Scaffold(
+      body: _pages[_selectedIndex],
+      backgroundColor: lappBackground,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            selectedItemColor: selectedTab,
+            unselectedItemColor: unselectedTab,
+            backgroundColor: kBase2,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            showUnselectedLabels: false,
+            showSelectedLabels: false,
+            items: [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.bar_chart), label: 'Statistics'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.notifications), label: 'Notifications'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Profile'),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

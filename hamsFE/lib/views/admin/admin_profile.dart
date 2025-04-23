@@ -35,9 +35,32 @@ class AdminProfile extends StatelessWidget {
             children: [
               // Avatar
               Center(
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundImage: NetworkImage(user.avatarUrl),
+                child: FutureBuilder(
+                  future: APIs.getUserAvatar(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return CircleAvatar(
+                        radius: 70,
+                        backgroundColor: lcardBackground,
+                        child: CircularProgressIndicator(),
+                      );
+                    } else if (snapshot.hasError) {
+                      return CircleAvatar(
+                        radius: 70,
+                        backgroundColor: lcardBackground,
+                        child: Icon(Icons.error),
+                      );
+                    } else {
+                      return ClipOval(
+                        child: Image.memory(
+                          snapshot.data!,
+                          width: 140,
+                          height: 140,
+                          fit: BoxFit.fill,
+                        ),
+                      );
+                    }
+                  },
                 ),
               ),
               SizedBox(height: 16),
