@@ -40,4 +40,21 @@ class USensor {
   }
 }
 
+class SensorInit {
+  final String id;
+  final String name;
+
+  SensorInit({
+    required this.id,
+    required this.name,
+  });
+
+  factory SensorInit.fromJson(Map<String, dynamic> json) {
+    return SensorInit(
+      id: json['id'] ?? 'N/A',
+      name: json['name'] ?? 'N/A',
+    );
+  }
+}
+
 ////////// User Sensor Models //////////
