@@ -86,7 +86,8 @@ class _ViewUserState extends State<AdminViewUser> {
                 Center(
                   child: CircleAvatar(
                     radius: 60,
-                    backgroundImage: NetworkImage(participant.avatarUrl),
+                    backgroundImage: NetworkImage('https://example.com/default-avatar.png',
+                    ),
                   ),
                 ),
                 SizedBox(height: 16),

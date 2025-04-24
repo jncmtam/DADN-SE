@@ -9,6 +9,7 @@ import 'package:hamsFE/views/sample_data.dart';
 import 'package:hamsFE/models/cageinit.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:typed_data';
 
 import '../models/user.dart';
 import '../views/constants.dart';
@@ -49,7 +50,7 @@ class APIs {
 
   static Future<User> getUserInfo() async {
     final userId = SessionManager().getUserId();
-    Uri url = Uri.parse('$baseUrl/user/$userId');
+    Uri url = Uri.parse('$baseUrl/$userId');
 
     final response = await http.get(
       url,
@@ -90,6 +91,25 @@ class APIs {
     } else {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
       throw Exception('Failed to change password: $error');
+    }
+  }
+
+  static Future<Uint8List> getUserAvatar() async {
+    Uri url = Uri.parse('$baseUrl/profile/avatar');
+
+    final response = await http.get(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      final error = jsonDecode(response.body)['error'];
+      throw Exception('Failed to get user avatar: $error');
     }
   }
 
@@ -478,21 +498,77 @@ class APIs {
     return;
   }
 
-  static Future<Map<String, dynamic>> addDeviceToCage(String cageId, String name, String type) async {
-    Uri url = Uri.parse('$baseUrl/admin/cages/$cageId/devices');
-    final response = await http.post(
+  static Future<List<UDevice>> getAvailableDevice () async {
+    Uri url = Uri.parse('$baseUrl/admin/devices');
+    final response = await http.get(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+    if (response.statusCode == 200) {
+      List<dynamic> devices = jsonDecode(response.body);
+      return devices.map((device) => UDevice.fromJson(device)).toList();
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get available devices: $error');
+    }
+  }
+
+    static Future<List<SensorInit>> getAvailableSensor() async {
+    Uri url = Uri.parse('$baseUrl/admin/sensors');
+    final response = await http.get(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+    if (response.statusCode == 200) {
+      List<dynamic> sensors = jsonDecode(response.body);
+      return sensors.map((sensor) => SensorInit.fromJson(sensor)).toList();
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get available sensors: $error');
+    }
+  }
+
+  static Future<Map<String, dynamic>> assignSensorToCage(String sensorId, String cageId) async {
+    Uri url = Uri.parse('$baseUrl/admin/sensors/$sensorId/cage');
+    final response = await http.put(
       url,
       headers: <String,String> {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${SessionManager().getJwt()}'
       },
       body: jsonEncode({
-        'name': name,
-        'type': type
+        'cageID': cageId,
       }),
     );
 
-    if (response.statusCode == 201) {
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to assign sensor: $error');
+    }
+  }
+
+  static Future<Map<String, dynamic>> addDeviceToCage(String deviceId, String cageId) async {
+    Uri url = Uri.parse('$baseUrl/admin/devices/$deviceId/cage');
+    final response = await http.put(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+      body: jsonEncode({
+        'cageID': cageId,
+      }),
+    );
+
+    if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
@@ -532,25 +608,41 @@ class APIs {
     }
   }
 
-  // static Future<Map<String, dynamic>> addSensorToCage(String cageId, String name, String type) async {
-  //   Uri url = Uri.parse('$baseUrl/admin/cages/$cageId/sensors');
-  //   final response = await http.post(
-  //     url,
-  //     headers: <String,String> {
-  //       'Content-Type': 'application/json',
-  //       'Authorization': 'Bearer ${SessionManager().getJwt()}'
-  //     },
-  //     body: jsonEncode({
-  //       'name': name,
-  //       'type': type
-  //     }),
-  //   );
+  static Future<Map<String, dynamic>> addSensorToCage(String cageId, String name, String type) async {
+    Uri url = Uri.parse('$baseUrl/admin/cages/$cageId/sensors');
+    final response = await http.post(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+      body: jsonEncode({
+        'name': name,
+        'type': type
+      }),
+    );
 
-  //   if (response.statusCode == 201) {
-  //     return jsonDecode(response.body);
-  //   } else {
-  //     final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-  //     throw Exception('Failed to add sensor: $error');
-  //   }
-  // }
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to add sensor: $error');
+    }
+  }
+
+  static Future<void> deleteSensor(String sensorId) async {
+    Uri url = Uri.parse('$baseUrl/admin/sensors/$sensorId');
+    final response = await http.delete(
+      url,
+      headers: <String,String> {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to delete sensor: $error');
+    }
+  }
 }

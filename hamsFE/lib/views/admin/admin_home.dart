@@ -31,19 +31,21 @@ class _AdminHomeState extends State<AdminHome> {
     _loadUsers(); // Load users when the widget is initialized or dependencies change
   }
   Future<void> _loadUsers() async {
+    if (!mounted) return;
     setState(() {
-      _isLoading = true; // Set loading to true before fetching data
+      _isLoading = true;
     });
     try {
       List<User> fetchedUsers = await APIs.getAlluser();
+      if (!mounted) return;
       setState(() {
-        users = fetchedUsers; // Update the users list with fetched data
-        _isLoading = false; // Set loading to false after data is fetched
+        users = fetchedUsers;
+        _isLoading = false;
       });
     } catch (e) {
-      // Handle error (e.g., show a snackbar)
+      if (!mounted) return;
       setState(() {
-        _isLoading = false; // Ensure loading is set to false even on error
+        _isLoading = false;
       });
     }
   }
@@ -93,8 +95,9 @@ class _AdminHomeState extends State<AdminHome> {
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) => AddUser(user: user)));
+                            if (!mounted) return;
                             if (result == true) {
-                              _loadUsers(); // Reload users if result is true
+                              _loadUsers();
                             }
                           },
                           icon: Icon(Icons.add_circle, color: secondaryButtonContent),
@@ -128,8 +131,9 @@ class _AdminHomeState extends State<AdminHome> {
                                                   builder: (context) => AdminViewUser(participant: users[index]),
                                                 ),
                                               );
+                                              if (!mounted) return;
                                               if (result == true) {
-                                                _loadUsers(); // Reload users if user was deleted
+                                                _loadUsers();
                                               }
                                             },
                                             icon: Icon(Icons.edit, color: Colors.blue)),
@@ -160,6 +164,7 @@ class _AdminHomeState extends State<AdminHome> {
                                                         onPressed: () {
                                                           Navigator.of(context).pop();
                                                           APIs.deleteUser(users[index].id).then((value) {
+                                                            if (!mounted) return;
                                                             ScaffoldMessenger.of(context).showSnackBar(
                                                               SnackBar(
                                                                 content: Text('User deleted successfully'),
@@ -168,6 +173,7 @@ class _AdminHomeState extends State<AdminHome> {
                                                             );
                                                             _loadUsers();
                                                           }).catchError((error) {
+                                                            if (!mounted) return;
                                                             ScaffoldMessenger.of(context).showSnackBar(
                                                               SnackBar(
                                                                 content: Text('Failed to delete user: $error'),

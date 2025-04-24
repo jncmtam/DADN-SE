@@ -8,6 +8,7 @@ import 'controllers/session.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Required by FlutterSecureStorage
   await SessionManager().loadToken(); // Load token from storage
+  // await SessionManager().logout(); // Load user from storage
 
   runApp(MyApp());
 }

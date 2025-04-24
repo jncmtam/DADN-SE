@@ -1,3 +1,4 @@
+
 enum SensorType {
   temperature,
   humidity,
@@ -37,6 +38,23 @@ class USensor {
     final typeName = type.toString().split('.').last.substring(0, 4);
     final idSuffix = id.substring(id.length - 3);
     return '$typeName$idSuffix';
+  }
+}
+
+class SensorInit {
+  final String id;
+  final String name;
+
+  SensorInit({
+    required this.id,
+    required this.name,
+  });
+
+  factory SensorInit.fromJson(Map<String, dynamic> json) {
+    return SensorInit(
+      id: json['id'] ?? 'N/A',
+      name: json['name'] ?? 'N/A',
+    );
   }
 }
 
