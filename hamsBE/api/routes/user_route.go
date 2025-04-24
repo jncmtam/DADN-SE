@@ -65,8 +65,19 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 				return
 			}
+
+			cageRes := []map[string]interface{}{}
+			for _, cage := range cages {
+				cageMap := map[string]interface{}{
+					"id":     cage.ID,
+					"name":   cage.Name,
+					"num_device": cage.NumDevice,
+					"status": cage.Status,
+				}
+				cageRes = append(cageRes, cageMap)
+			}
 		
-			c.JSON(http.StatusOK, cages)
+			c.JSON(http.StatusOK, cageRes)
 		})
 
 		// Get General Info (number of active devices in all cages)
