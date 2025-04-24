@@ -254,62 +254,124 @@
     }
     ```
 
-### 6. Add A Sensor To A Cage 
-- **Method**: `POST`
-- **URL**: `/admin/cages/:cageID/sensors`
-- **Headers**: 
-  - `Authorization: Bearer <token>`
-- **Parameters**:
-    - cageID (string, required): ID của chuồng muốn thêm thiết bị.
-- **Request Body**:
+
+### 6. Add A Sensor  
+- **Method**: `POST`  
+- **URL**: `/admin/sensors`  
+- **Headers**:  
+  - `Authorization: Bearer <token>`  
+- **Request Body**:  
   ```json
   {
     "name": "Sensor Name",
-    "type": "temperature" // temperature humidity light distance
+    "type": "temperature", // temperature humidity light distance
+    "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83" // có thể null
   }
-  ```
-  
+  ```  
+
 - **Response**:
-  - `201 Created`: 
+  - `201 Created`:  
     ```json
     {
-        "id": "3268d027-9226-4114-bce4-cb141ea37528",
-        "message": "Sensor created successfully",
-        "name": "Nhiet do"
+      "id": "9fc0d5f3-a1f0-43c4-bd0e-8e7fa09f95d2",
+      "message": "Sensor created successfully",
+      "name": "Temperature 1"
     }
     ```
-  - `400 Bad Request`: Invalid request body
+  - `400 Bad Request`: Invalid request body  
     ```json
     {
       "error": "Invalid request body"
     }
     ```
-  - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
+  - `401 Unauthorized`: Invalid token (missing, expired, invalid)  
     ```json
     {
       "error": "Invalid or expired token"
     }
     ```
-  - `403 Forbidden`: Permission denied
+  - `403 Forbidden`: Permission denied  
     ```json
     {
-        "error": "Permission denied"
+      "error": "Permission denied"
     }
     ```
-  - `404 Not Found`: cageID not found 
+  - `404 Not Found`: cageID not found  
     ```json
     {
-        "error": "Cage not found"
+      "error": "Cage not found"
     }
     ```
-  - `500 Internal Server Error`:
+  - `500 Internal Server Error`:  
     ```json
     {
       "error": "Internal Server Error"
     }
     ```
 
-### 7. Delete A Sensor 
+
+### 7. Assign A Sensor To A Cage  
+- **Method**: `PUT`  
+- **URL**: `/admin/sensors/:sensorID/cage`  
+- **Headers**:  
+  - `Authorization: Bearer <token>`  
+- **Parameters**:
+  - `sensorID` (string, required): ID của cảm biến cần gán vào chuồng.  
+- **Request Body**:  
+  ```json
+  {
+    "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83"
+  }
+  ```
+
+- **Response**:
+  - `200 OK`: Sensor successfully assigned to the cage  
+    ```json
+    {
+      "id": "9fc0d5f3-a1f0-43c4-bd0e-8e7fa09f95d2",
+      "message": "Sensor assigned to cage successfully",
+      "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83"
+    }
+    ```
+  - `400 Bad Request`: Invalid request body  
+    ```json
+    {
+      "error": "Invalid request body"
+    }
+    ```
+  - `401 Unauthorized`: Invalid token  
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - `403 Forbidden`: Permission denied  
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - `404 Not Found`: Sensor hoặc cage không tồn tại  
+    - Sensor not found:
+      ```json
+      {
+        "error": "Sensor not found"
+      }
+      ```
+    - Cage not found:
+      ```json
+      {
+        "error": "Cage not found"
+      }
+      ```
+  - `500 Internal Server Error`:  
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
+### 8. Delete A Sensor 
 - **Method**: `DELETE`
 - **URL**: `/admin/sensors/:sensorID`
 - **Headers**: 
@@ -349,7 +411,7 @@
     }
     ```
 
-### 8. Get Cages By User
+### 9. Get Cages By User
 - **Method**: `GET`
 - **URL**: `/admin/users/:id/cages`
 - **Headers**: 
@@ -394,7 +456,7 @@
     }
     ```
 
-### 9. Get Cage Details
+### 10. Get Cage Details
 - **Method**: `GET`
 - **URL**: `/admin/cages/:cageID`
 - **Headers**: 
@@ -413,7 +475,8 @@
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
                 "name": "Fan 1",
-                "status": "off" // on / auto
+                "status": "off" // on / auto,
+                
             }
         ],
         "sensors": [
@@ -450,7 +513,7 @@
     }
     ```
 
-### 10. Get List Available Devices
+### 11. Get List Available Devices
 - **Method**: `GET`
 - **URL**: `/admin/devices`
 - **Headers**:
@@ -487,6 +550,44 @@
       "error": "Internal Server Error"
     }
     ```
+### 11. Get List Available Sensors  
+- **Method**: `GET`  
+- **URL**: `/admin/sensors`  
+- **Headers**:  
+  - `Authorization: Bearer <token>`  
+
+- **Response**:  
+  - **200 OK**:  
+    ```json
+    [
+        {
+            "id": "bba6e308-f5a2-423b-8a1f-4de9371b0f20",
+            "name": "Temperature Sensor 1"
+        },
+        {
+            "id": "a7e0c3c5-52b9-4bb6-9ae0-7b4e7a83a5df",
+            "name": "Humidity Sensor 2"
+        }
+    ]
+    ```
+  - **401 Unauthorized**: Invalid or expired token  
+    ```json
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+  - **403 Forbidden**: Permission denied 
+    ```json
+    {
+      "error": "Permission denied"
+    }
+    ```
+  - **500 Internal Server Error**:  
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
 
 
 ## II. User Routes
@@ -514,12 +615,7 @@
       "error": "Invalid or expired token"
     }
     ```
-  - `403 Forbidden`: 
-    ```json
-    {
-        "error": "Permission denied"
-    }
-    ```
+
   - `500 Internal Server Error`:
     ```json
     {
@@ -546,7 +642,8 @@
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
                 "name": "Fan 1",
-                "status": "off" // on / auto
+                "status": "off", // on / auto
+                "action_type": "on_off" // refill
             }
         ],
         "sensors": [
@@ -597,7 +694,8 @@
     {
         "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
         "name": "Fan 1",
-        "status": "off",
+        "status": "off", // on auto
+        "action_type": "on_off", // refill
         "automation_rule": [
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
@@ -908,12 +1006,7 @@
       "error": "Invalid or expired token"
     }
     ```
-  - **403 Forbidden**: Permission denied 
-    ```json
-    {
-      "error": "Permission denied"
-    }
-    ```
+
   - **500 Internal Server Error**: 
     ```json
     {

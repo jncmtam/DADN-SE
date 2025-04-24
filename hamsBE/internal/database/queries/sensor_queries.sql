@@ -16,5 +16,11 @@ SELECT EXISTS(SELECT 1 FROM sensors WHERE id = $1);
 
 -- name: check_sensor_name_exists
 SELECT EXISTS (
-  SELECT 1 FROM sensors WHERE cage_id = $1 AND name = $2
+  SELECT 1 FROM sensors WHERE name = $1
 );
+
+-- name: assign_sensor_to_cage
+UPDATE sensors SET cage_id = $1 WHERE id = $2;
+
+-- name: get_sensors_assignable
+SELECT id, name FROM sensors WHERE cage_id IS NULL;

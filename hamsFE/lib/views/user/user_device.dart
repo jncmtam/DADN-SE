@@ -259,7 +259,10 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
     double selectedValue = 30.5;
 
     TimeOfDay selectedTime = TimeOfDay.now();
-    Set<DayOfWeek> selectedDays = {};
+    // add today to selectedDays
+    Set<DayOfWeek> selectedDays = {
+      DayOfWeek.values[DateTime.now().weekday - 1],
+    };
 
     debugPrint('actionType: ${ActionType.values}');
     List<ActionType> availableActions = _device.type == DeviceType.refill

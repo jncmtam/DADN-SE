@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hamsFE/models/cage.dart';
 import 'package:hamsFE/models/device.dart';
+import 'package:hamsFE/models/noti.dart';
 import 'package:hamsFE/models/rule.dart';
 import 'package:hamsFE/models/sensor.dart';
 
@@ -112,3 +113,34 @@ UDetailedDevice sampleDetailedDevice = UDetailedDevice(
     ),
   ],
 );
+
+List<MyNotification> sampleNotifications = [
+  MyNotification(
+    id: '1',
+    title: 'Device 1 Status Update',
+    type: NotificationType.info,
+    timestamp: DateTime.now(),
+    read: false,
+  ),
+  MyNotification(
+    id: '2',
+    title: 'Device 2 Status Update',
+    type: NotificationType.warning,
+    timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+    read: false,
+  ),
+  MyNotification(
+    id: '3',
+    title: 'Device 3 Status Update',
+    type: NotificationType.error,
+    timestamp: DateTime.now().subtract(const Duration(days: 1)),
+    read: true,
+  ),
+  MyNotification(
+    id: '4',
+    title: 'Device 4 Status Update',
+    type: NotificationType.info,
+    timestamp: DateTime.now().subtract(const Duration(days: 2)),
+    read: false,
+  ),
+];

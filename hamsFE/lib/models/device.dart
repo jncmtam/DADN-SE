@@ -28,7 +28,7 @@ class UDevice {
         orElse: () => DeviceStatus.off,
       ),
       type: DeviceType.values.firstWhere(
-        (e) => e.toString() == 'DeviceType.${json['type']}',
+        (e) => e.toString() == 'DeviceType.${json['action_type']}',
         orElse: () => DeviceType.on_off,
       ),
     );
@@ -67,7 +67,7 @@ class UDetailedDevice {
           .map((rule) => ScheduledRule.fromJson(rule))
           .toList(),
       type: DeviceType.values.firstWhere(
-        (e) => e.toString() == 'DeviceType.${json['type']}',
+        (e) => e.toString() == 'DeviceType.${json['action_type']}',
         orElse: () => DeviceType.on_off,
       ),
     );

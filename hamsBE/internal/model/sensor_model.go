@@ -17,3 +17,8 @@ type SensorResponse struct{
 	Type 		string 		`json:"type"`
 	Unit 		string 		`json:"unit"`
 }
+
+type SensorListResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
