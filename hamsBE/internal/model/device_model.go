@@ -8,7 +8,7 @@ type Device struct{
 	Type 		string 		`json:"type"`
 	Status 		string 		`json:"status"`
 	LastStatus 	string 		`json:"last_status"`
-	CageID 		bool 		`json:"cage_id"`
+	CageID 		string 		`json:"cage_id"`
 	CreatedAt 	time.Time 	`json:"created_at"`
 	UpdatedAt 	time.Time 	`json:"updated_at"`
 }

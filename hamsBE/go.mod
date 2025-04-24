@@ -9,7 +9,11 @@ require (
 	github.com/lib/pq v1.10.9
 )
 
-require github.com/sendgrid/rest v2.6.9+incompatible // indirect
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/sendgrid/rest v2.6.9+incompatible // indirect
+	golang.org/x/sync v0.12.0 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.12.6 // indirect
@@ -46,6 +50,7 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-contrib/cors v1.7.4
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/golang-jwt/jwt/v5 v5.2.1

@@ -23,3 +23,4 @@ CREATE TABLE automation_rules (
 
 CREATE INDEX idx_automation_rules_sensor_id ON automation_rules(sensor_id);
 CREATE INDEX idx_automation_rules_device_id ON automation_rules(device_id);
+ALTER TABLE automation_rules ADD COLUMN cage_id UUID NOT NULL REFERENCES cages(id) ON DELETE CASCADE;

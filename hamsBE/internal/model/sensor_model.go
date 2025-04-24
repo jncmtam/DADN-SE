@@ -8,7 +8,7 @@ type Sensor struct{
 	Type 		string 		`json:"type"`
 	Value 		float64 	`json:"value"`
 	Unit 		string 		`json:"unit"`
-	CageID 		bool 		`json:"cage_id"`
+	CageID 		string 		`json:"cage_id"`
 	CreatedAt 	time.Time 	`json:"created_at"`
 }
 
