@@ -30,10 +30,11 @@ class SessionManager {
     }
     if (JwtDecoder.isExpired(_jwt!)) {
       await logout();
+    } else {
+      final decoded = JwtDecoder.decode(_jwt!);
+      _userId = decoded['user_id'];
+      _role = decoded['role'];
     }
-    final decoded = JwtDecoder.decode(_jwt!);
-    _userId = decoded['user_id'];
-    _role = decoded['role'];
   }
 
   Future<void> logout() async {

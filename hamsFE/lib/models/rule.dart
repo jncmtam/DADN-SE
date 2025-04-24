@@ -116,12 +116,12 @@ class ConditionalRule extends AutomationRule {
     final name = sensor.getSensorName();
     final op = conditionalOperatorToString(operator);
     final value = threshold.toStringAsFixed(1);
-    final action = this.action.toString().split('.').last.toUpperCase();
-    return '$name $op $value $unit => $action';
+    final actionStr = actionTypeToString(action);
+    return '$name $op $value $unit => $actionStr';
   }
 }
 
-enum DayOfWeek { sun, mon, tue, wed, thu, fri, sat }
+enum DayOfWeek { mon, tue, wed, thu, fri, sat, sun }
 
 class ScheduledRule extends AutomationRule {
   // final String name;
@@ -143,7 +143,8 @@ class ScheduledRule extends AutomationRule {
                 (e) => e.toString() == 'DayOfWeek.$day',
                 orElse: () => DayOfWeek.sun,
               ))
-          .toList(),
+          .toList()
+        ..sort((a, b) => a.index.compareTo(b.index)),
       time: TimeOfDay(
         hour: int.parse(json['execution_time'].split(':')[0]),
         minute: int.parse(json['execution_time'].split(':')[1]),
@@ -170,7 +171,7 @@ class ScheduledRule extends AutomationRule {
     final timeStr =
         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
     final daysStr = days.map((day) => day.toString().split('.').last).join(',');
-    final actionStr = action.toString().split('.').last.toUpperCase();
+    final actionStr = actionTypeToString(action);
     return '$timeStr $daysStr => $actionStr';
   }
 }

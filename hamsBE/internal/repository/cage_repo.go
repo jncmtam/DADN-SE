@@ -24,7 +24,7 @@ func (r *CageRepository) CreateACageForID(ctx context.Context, nameCage string, 
 
 	cage := &model.Cage{}
 	err = r.db.QueryRowContext(ctx, query, nameCage, userID).Scan(
-		&cage.ID, &cage.Name,
+		&cage.ID, &cage.Name, &cage.UserID, &cage.Status, &cage.CreatedAt, &cage.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -34,7 +34,7 @@ func (r *CageRepository) CreateACageForID(ctx context.Context, nameCage string, 
 
 
 func (r *CageRepository) GetCagesByID(ctx context.Context, userID string) ([]*model.CageResponse, error) {
-	query, err := queries.GetQuery("get_cages_by_ID")
+	query, err := queries.GetQuery("get_cages_by_user_id")
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,8 @@ func (r *CageRepository) GetCagesByID(ctx context.Context, userID string) ([]*mo
 	var cages []*model.CageResponse
 	for rows.Next() {
 		cage := &model.CageResponse{}
-		if err := rows.Scan(&cage.ID, &cage.Name, &cage.NumDevice, &cage.Status); err != nil {
+		if err := rows.Scan(&cage.ID, &cage.Name, &cage.NumDevice, &cage.Status,
+			&cage.CreatedAt, &cage.UpdatedAt); err != nil {
 			return nil, err
 		}
 		cages = append(cages, cage)
@@ -67,14 +68,15 @@ func (r *CageRepository) DeleteCageByID(ctx context.Context, cageID string) erro
 	return err
 }
 
-func (r *CageRepository) GetACageByID(ctx context.Context, cageID string) (*model.CageResponse, error) {
-	query, err := queries.GetQuery("get_cage_by_ID")
+func (r *CageRepository) GetACageByID(ctx context.Context, cageID string) (*model.Cage, error) {
+	query, err := queries.GetQuery("get_cage_by_id")
 	if err != nil {
 		return nil, err
 	}
 
-	cage := &model.CageResponse{}
-	err = r.db.QueryRowContext(ctx, query, cageID).Scan(&cage.ID, &cage.Name, &cage.Status)
+	cage := &model.Cage{}
+	err = r.db.QueryRowContext(ctx, query, cageID).Scan(&cage.ID, &cage.Name, &cage.UserID,
+		&cage.Status, &cage.CreatedAt, &cage.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil 
@@ -86,13 +88,13 @@ func (r *CageRepository) GetACageByID(ctx context.Context, cageID string) (*mode
 }
 
 func (r *CageRepository) IsOwnedByUser(ctx context.Context, userID, cageID string) (bool, error) {
-	query, err := queries.GetQuery("IsOwnedByUser_Cage")
+	query, err := queries.GetQuery("is_owned_by_user_cage")
 	if err != nil {
 		return false, err
 	}
-	var count int
-    err = r.db.QueryRowContext(ctx, query, cageID, userID).Scan(&count)
-    return count > 0, err
+	var exists bool
+	err = r.db.QueryRowContext(ctx, query, cageID, userID).Scan(&exists)
+	return exists, err
 }
 
 func (r *CageRepository) CageExists(ctx context.Context, cageID string) (bool, error) {

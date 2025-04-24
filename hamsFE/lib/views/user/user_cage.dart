@@ -28,7 +28,7 @@ class _UserCageScreenState extends State<UserCageScreen> {
   void initState() {
     super.initState();
     _isLoading = true;
-    _channel = APIs.getCageSensorData(widget.cageId);
+    _channel = APIs.listenCageSensorData(widget.cageId);
     _fetchData();
   }
 

@@ -105,7 +105,7 @@ func (s *CageService) DeleteCage(ctx context.Context, cageID string) error {
 	return s.CageRepo.DeleteCageByID(ctx, cageID)
 }
 
-func (s *CageService) GetACageByCageID(ctx context.Context, cageID string) (*model.CageResponse, error) {
+func (s *CageService) GetACageByCageID(ctx context.Context, cageID string) (*model.Cage, error) {
 	if cageID == "" {
 		return nil, errors.New("cageID is required")
 	}
