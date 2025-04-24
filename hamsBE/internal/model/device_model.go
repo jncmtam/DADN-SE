@@ -16,6 +16,7 @@ type Device struct{
 type DeviceResponse struct{
 	ID 			string 		`json:"id"`
 	Name 		string 		`json:"name"`
+	CageID 		string 		`json:"cage_id"`
 	Status 		string 		`json:"status"`
 	Type		string		`json:"type"`
 }

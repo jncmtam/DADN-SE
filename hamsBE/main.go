@@ -4,6 +4,8 @@ import (
 	"hamstercare/api"
 	"hamstercare/internal/database"
 	"hamstercare/internal/database/queries"
+	"hamstercare/internal/mqtt"
+	"hamstercare/internal/websocket"
 	"log"
 	"os"
 	"time"
@@ -20,9 +22,9 @@ func main() {
 	}
 
 	// Tải các truy vấn SQL
-    if err := queries.LoadQueries(); err != nil {
-        log.Fatal("Error loading queries:", err)
-    }
+	if err := queries.LoadQueries(); err != nil {
+		log.Fatal("Error loading queries:", err)
+	}
 
 	db, err := database.ConnectDB()
 	if err != nil {
@@ -34,7 +36,7 @@ func main() {
 
 	// Cấu hình CORS
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8080","http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:8080", "http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -60,4 +62,13 @@ func main() {
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+	// Initialize WebSocket hub
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
+	// Set WebSocket hub for database package
+	database.SetWebSocketHub(wsHub)
+
+	// Initialize MQTT client
+	mqtt.ConnectMQTT(db, wsHub)
 }

@@ -5,8 +5,8 @@ BROKER=${MQTT_BROKER:-"localhost"}
 PORT=${MQTT_PORT:-1883}
 
 # User and cage IDs (configurable via environment variables)
-USER_ID=${USER_ID:-"user1"}
-CAGE_ID=${CAGE_ID:-"cage1"}
+USER_ID=${USER_ID:-"11111111-1111-1111-1111-111111111111"}
+CAGE_ID=${CAGE_ID:-"33333333-3333-3333-3333-333333333333"}
 
 # Function to get current timestamp
 get_timestamp() {
@@ -43,28 +43,24 @@ publish_device_data() {
 
 # Test script
 # Test humidity (low, then high to trigger rule)
-publish_sensor_data "sensor2" "humidity" 45.0
+publish_sensor_data "bbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" "humidity" 35.0  # Should trigger rule (< 40%)
 sleep 2
-publish_sensor_data "sensor2" "humidity" 75.5
+publish_sensor_data "bbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" "humidity" 75.5
 sleep 2
 
 # Test temperature
-publish_sensor_data "sensor1" "temperature" 37.2
+publish_sensor_data "aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" "temperature" 37.2  # Should trigger rule (> 30°C)
 sleep 2
 
 # Test light
-publish_sensor_data "sensor3" "light" 95.0
+publish_sensor_data "ddddddd-dddd-dddd-dddd-dddddddddddd" "light" 95.0
 sleep 2
 
 # Test distance (water level)
-publish_sensor_data "sensor5" "distance" 15.3
+publish_sensor_data "eeeeeee-eeee-eeee-eeee-eeeeeeeeeeee" "distance" 15.3  # No sensor with this ID in DB
 sleep 2
-
 
 # Test device
-publish_device_data "device1" "fan" "on"
+publish_device_data "66666666-6666-6666-6666-666666666666" "fan" "on"
 sleep 2
-publish_device_data "device2" "pump" "refill"
-
-# export USER_ID="user1" CAGE_ID="cage1" 
-# ./scripts/sensor_data.sh
+publish_device_data "77777777-7777-7777-7777-777777777777" "pump" "refill"
