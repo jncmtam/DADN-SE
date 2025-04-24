@@ -1,95 +1,41 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:hamsFE/controllers/apis.dart';
 import 'package:hamsFE/models/noti.dart';
 import 'package:intl/intl.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants.dart';
 
 class UserNotification extends StatefulWidget {
-  const UserNotification({super.key});
+  final List<MyNotification> notifications;
+  final void Function(String) onMarkAsRead;
+
+  const UserNotification({
+    super.key,
+    required this.notifications,
+    required this.onMarkAsRead,
+  });
 
   @override
-  State<StatefulWidget> createState() => _UserNotificationState();
+  State<UserNotification> createState() => _UserNotificationState();
 }
 
 class _UserNotificationState extends State<UserNotification> {
-  late bool _isLoading;
-  final List<MyNotification> _notifications = [];
-  late WebSocketChannel _channel;
+  late List<MyNotification> _notis;
 
   @override
   void initState() {
     super.initState();
-    _isLoading = true;
-    _fetchData();
-    _connectWebSocket();
+    // Create a local mutable copy
+    _notis = widget.notifications.map((n) => n.copy()).toList();
   }
 
-  Future<void> _fetchData() async {
-    try {
-      final notifications = await APIs.getUserNotifications();
-
+  void _handleTap(String id) {
+    final index = _notis.indexWhere((n) => n.id == id);
+    if (index != -1 && !_notis[index].read) {
       setState(() {
-        _notifications.addAll(notifications);
-        _isLoading = false;
+        _notis[index].read = true;
       });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Something went wrong'),
-            backgroundColor: debugStatus,
-          ),
-        );
-      }
-      debugPrint(e.toString());
+      widget.onMarkAsRead(id);
     }
   }
-
-  void _connectWebSocket() {
-    _channel = APIs.listenUserNotifications();
-
-    _channel.stream.listen((message) {
-      final data = jsonDecode(message);
-      final newNotif = MyNotification.fromJson(data);
-
-      setState(() {
-        _notifications.insert(0, newNotif); // Prepend new notification
-      });
-    }, onError: (error) {
-      debugPrint('WebSocket error: $error');
-    });
-  }
-
-  void _markAsRead(String id) {
-    final index = _notifications.indexWhere((n) => n.id == id);
-    if (index != -1 && !_notifications[index].read) {
-      setState(() {
-        _notifications[index].read = true;
-      });
-
-      try {
-        APIs.markNotificationAsRead(id);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Failed to mark as read'),
-              backgroundColor: debugStatus,
-            ),
-          );
-        }
-        debugPrint(e.toString());
-      }
-    }
-  }
-
-  int _unreadCount() => _notifications.where((n) => !n.read).length;
 
   Icon _statusIcon(String status) {
     switch (status) {
@@ -105,19 +51,7 @@ class _UserNotificationState extends State<UserNotification> {
   }
 
   @override
-  void dispose() {
-    _channel.sink.close();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -136,14 +70,14 @@ class _UserNotificationState extends State<UserNotification> {
       backgroundColor: lappBackground,
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: _notifications.isEmpty
+        child: _notis.isEmpty
             ? const Center(child: Text('No notifications found'))
             : ListView.builder(
-                itemCount: _notifications.length,
+                itemCount: _notis.length,
                 itemBuilder: (context, index) {
-                  final notif = _notifications[index];
+                  final notif = _notis[index];
                   return GestureDetector(
-                    onTap: () => _markAsRead(notif.id),
+                    onTap: () => _handleTap(notif.id),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
@@ -172,16 +106,12 @@ class _UserNotificationState extends State<UserNotification> {
                             children: [
                               Text(
                                 DateFormat.Hm().format(notif.timestamp),
-                                style: TextStyle(
-                                  color: lNormalText,
-                                ),
+                                style: TextStyle(color: lNormalText),
                               ),
                               Text(
                                 DateFormat('dd/MM/yyyy')
                                     .format(notif.timestamp),
-                                style: TextStyle(
-                                  color: lNormalText,
-                                ),
+                                style: TextStyle(color: lNormalText),
                               ),
                             ],
                           ),
@@ -194,4 +124,14 @@ class _UserNotificationState extends State<UserNotification> {
       ),
     );
   }
+}
+
+extension CopyableNotification on MyNotification {
+  MyNotification copy() => MyNotification(
+        id: id,
+        title: title,
+        timestamp: timestamp,
+        type: type,
+        read: read,
+      );
 }
