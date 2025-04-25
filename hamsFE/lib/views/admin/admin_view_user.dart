@@ -72,6 +72,7 @@ class _ViewUserState extends State<AdminViewUser> {
         ),
       ),
       body: Container(
+        height: MediaQuery.of(context).size.height,
         decoration: BoxDecoration(
           color: kBase0,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -322,7 +323,7 @@ class _ViewUserState extends State<AdminViewUser> {
                             },
                           ),
 
-                SizedBox(height: 30),
+                // SizedBox(height: 30),
               ],
             ),
           ),
