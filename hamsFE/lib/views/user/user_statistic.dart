@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:hamsFE/views/constants.dart';
 
-void main() async {
-  runApp(MaterialApp(
-    home: const ChartExample(),
-    debugShowCheckedModeBanner: false,
-  ));
-}
 
 class ChartData {
   final String day;
