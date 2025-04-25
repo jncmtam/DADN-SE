@@ -2,17 +2,17 @@
 
 ## Description
 
-Format of topic: `hamster/{user_id}/{cage_id}/{type}/{id}/{type of data}`
+Format of topic: `hamster/{username}/{cagename}/{type}/{id}/{type of data}`
 
-- `user_id`: ID of the user
-- `cage_id`: ID of the cage
+- `username`: ID of the user
+- `cagename`: ID of the cage
 - `type`: device or sensor
 - `id`: ID of the device or sensor
 - `type of data`: data type of the device or sensor (temperature, humidity, light, etc.)
 
 ## Topic list
 
-**Example: User_id = 1, cage_id = 1,**
+**Example: User_id = 1, cagename = 1,**
 
 - `hamster/1/1/sensor/1/temperature`: Temperature of sensor 1
 - `hamster/1/1/sensor/2/humidity`: Humidity of sensor 2
@@ -39,9 +39,9 @@ Format of topic: `hamster/{user_id}/{cage_id}/{type}/{id}/{type of data}`
 
 ### Instruction
 
-- The data of the sensor will be sent to the topic `hamster/{user_id}/{cage_id}/sensor/{sensor_id}/{type of data}`.
+- The data of the sensor will be sent to the topic `hamster/{username}/{cagename}/sensor/{sensor_id}/{type of data}`.
 
-- The data of the device will be sent to the topic `hamster/{user_id}/{cage_id}/device/{device_id}/{type of data}`.
+- The data of the device will be sent to the topic `hamster/{username}/{cagename}/device/{device_id}/{type of data}`.
 
 - Use method `StartMQTTClientSub` to subscribe to the topic.
 

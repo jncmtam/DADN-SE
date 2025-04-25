@@ -165,3 +165,38 @@ func (s *DeviceService) AssignDeviceToCage(ctx context.Context, deviceID, cageID
 func (s *DeviceService) CountActiveDevicesByUserID(ctx context.Context, userID string) (int, error) {
 	return s.DeviceRepo.CountActiveDevicesByUser(ctx, userID)
 }
+
+
+func (s *DeviceService) UpdateDeviceStatus(ctx context.Context, deviceID, status string) error {
+	// Kiểm tra trạng thái hợp lệ
+	validStatuses := []string{"on", "off", "auto"}
+	statusValid := false
+	for _, validStatus := range validStatuses {
+		if status == validStatus {
+			statusValid = true
+			break
+		}
+	}
+
+	if !statusValid {
+		return errors.New("invalid status value")
+	}
+
+	// Lấy thông tin thiết bị từ repository
+	device, err := s.DeviceRepo.GetDeviceByID(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	if device == nil {
+		return errors.New("device not found")
+	}
+
+	// Cập nhật trạng thái thiết bị
+	device.Status = status
+	err = s.DeviceRepo.UpdateDeviceStatus(ctx, deviceID, status)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

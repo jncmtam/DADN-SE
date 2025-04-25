@@ -20,8 +20,7 @@ class UserDeviceScreen extends StatefulWidget {
 class _UserDeviceScreenState extends State<UserDeviceScreen> {
   late UDetailedDevice _device;
   late bool _isLoading;
-  bool _deleteMode = false;
-  int? _deleteIndex;
+  late List<AutomationRule> _allRules;
 
   @override
   void initState() {
@@ -35,6 +34,8 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
       final device = await APIs.getDeviceDetails(widget.deviceId);
       setState(() {
         _device = device;
+        _allRules = _device.condRules.cast<AutomationRule>() +
+            _device.schedRules.cast<AutomationRule>();
         _isLoading = false;
       });
     } catch (e) {
@@ -113,8 +114,7 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
   }
 
   Widget _buildRuleList() {
-    List<AutomationRule> rules = _device.condRules.cast<AutomationRule>() +
-        _device.schedRules.cast<AutomationRule>();
+    List<AutomationRule> rules = _allRules;
 
     return Expanded(
       child: Column(
@@ -130,118 +130,91 @@ class _UserDeviceScreenState extends State<UserDeviceScreen> {
           ),
           SizedBox(height: 10),
           Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (_deleteMode) {
-                  setState(() {
-                    _deleteMode = false;
-                    _deleteIndex = null;
-                  });
-                }
-              },
-              child: ListView.separated(
-                separatorBuilder: (context, index) => SizedBox(height: 10),
-                itemCount: rules.length,
-                itemBuilder: (context, index) {
-                  final rule = rules[index];
-                  return GestureDetector(
-                    onLongPress: () {
-                      setState(() {
-                        _deleteMode = true;
-                        _deleteIndex = index;
-                      });
-                    },
-                    child: Stack(
-                      children: [
-                        ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          tileColor: kBase3,
-                          title: Center(
-                            child: Text(
-                              rule.toRuleString(),
-                              style: TextStyle(
-                                color: lNormalText,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_deleteMode && _deleteIndex == index)
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: IconButton(
-                              icon: Icon(Icons.delete, color: failStatus),
-                              onPressed: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: Text("Delete Rule"),
-                                    content: Text(
-                                        "Are you sure you want to delete this rule?"),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, false),
-                                        child: Text("Cancel"),
-                                      ),
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(context, true),
-                                        child: Text("Delete",
-                                            style:
-                                                TextStyle(color: failStatus)),
-                                      ),
-                                    ],
-                                  ),
-                                );
+            child: ListView.separated(
+              separatorBuilder: (context, index) => SizedBox(height: 10),
+              itemCount: rules.length,
+              itemBuilder: (context, index) {
+                final rule = rules[index];
 
-                                if (confirm == true) {
-                                  try {
-                                    if (rule is ConditionalRule) {
-                                      await APIs.deleteConditionalRule(rule.id);
-                                    } else if (rule is ScheduledRule) {
-                                      await APIs.deleteScheduledRule(rule.id);
-                                    }
-
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content:
-                                              Text('Rule deleted successfully'),
-                                          backgroundColor: successStatus,
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text('Something went wrong'),
-                                          backgroundColor: debugStatus,
-                                        ),
-                                      );
-                                    }
-                                    debugPrint(e.toString());
-                                  }
-
-                                  setState(() {
-                                    _deleteMode = false;
-                                    _deleteIndex = null;
-                                  });
-                                  _fetchData();
-                                }
-                              },
-                            ),
-                          ),
-                      ],
+                return Dismissible(
+                  key: ValueKey(rule.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: failStatus,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
-              ),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  confirmDismiss: (direction) async {
+                    return await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("Delete Rule"),
+                        content: const Text(
+                            "Are you sure you want to delete this rule?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: Text("Delete",
+                                style: TextStyle(color: failStatus)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onDismissed: (_) async {
+                    try {
+                      if (rule is ConditionalRule) {
+                        await APIs.deleteConditionalRule(rule.id);
+                      } else if (rule is ScheduledRule) {
+                        await APIs.deleteScheduledRule(rule.id);
+                      }
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Rule deleted successfully'),
+                            backgroundColor: successStatus,
+                          ),
+                        );
+                      }
+
+                      setState(() {
+                        _allRules.removeAt(index);
+                      });
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Something went wrong'),
+                            backgroundColor: debugStatus,
+                          ),
+                        );
+                      }
+                      debugPrint(e.toString());
+                    }
+                  },
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    tileColor: kBase3,
+                    title: Center(
+                      child: Text(
+                        rule.toRuleString(),
+                        style: TextStyle(color: lNormalText),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

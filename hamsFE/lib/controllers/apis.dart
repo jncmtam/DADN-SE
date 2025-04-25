@@ -295,7 +295,28 @@ class APIs {
   // Device APIs
   static Future<void> setDeviceStatus(
       String deviceId, DeviceStatus status) async {
-    return;
+    Uri url = Uri.parse('$baseUrl/devices/$deviceId');
+
+    // create json payload
+    final payload = {
+      'status': status.toString().split('.').last,
+    };
+
+    final response = await http.put(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to set device status: $error');
+    }
   }
 
   static Future<UDetailedDevice> getDeviceDetails(String deviceId) async {

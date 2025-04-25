@@ -8,7 +8,7 @@ import 'package:hamsFE/views/user/user_home.dart';
 import 'package:hamsFE/views/user/user_notification.dart';
 import 'package:hamsFE/views/user/user_profile.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-// import 'package:hamsFE/views/user/user_statistic.dart';
+import 'package:hamsFE/views/user/user_statistic.dart';
 import 'constants.dart';
 
 class UserApp extends StatefulWidget {
@@ -44,8 +44,8 @@ class _UserAppState extends State<UserApp> {
       setState(() {
         _pages = <Widget>[
           UserHome(userName: user.name),
-          Temp(),
-          // ChartExample(),
+          // Temp(),
+          ChartExample(),
           UserNotification(
             notifications: _notifications,
             onMarkAsRead: _markAsRead,

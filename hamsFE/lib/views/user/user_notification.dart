@@ -37,16 +37,29 @@ class _UserNotificationState extends State<UserNotification> {
     }
   }
 
-  Icon _statusIcon(String status) {
-    switch (status) {
-      case 'info':
-        return const Icon(Icons.circle, color: primaryButton, size: 10);
-      case 'error':
-        return const Icon(Icons.circle, color: failStatus, size: 10);
-      case 'warning':
-        return const Icon(Icons.circle, color: warningStatus, size: 10);
+  // Icon _statusIcon(String status) {
+  //   switch (status) {
+  //     case 'info':
+  //       return const Icon(Icons.circle, color: primaryButton, size: 10);
+  //     case 'error':
+  //       return const Icon(Icons.circle, color: failStatus, size: 10);
+  //     case 'warning':
+  //       return const Icon(Icons.circle, color: warningStatus, size: 10);
+  //     default:
+  //       return const Icon(Icons.circle, color: debugStatus, size: 10);
+  //   }
+  // }
+
+  Color _getStatusColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.info:
+        return primaryButton;
+      case NotificationType.error:
+        return failStatus;
+      case NotificationType.warning:
+        return warningStatus;
       default:
-        return const Icon(Icons.circle, color: debugStatus, size: 10);
+        return debugStatus;
     }
   }
 
@@ -88,7 +101,11 @@ class _UserNotificationState extends State<UserNotification> {
                       ),
                       child: Row(
                         children: [
-                          _statusIcon(notif.type.toString().split('.').last),
+                          // Icon(
+                          //   Icons.circle,
+                          //   color: _getStatusColor(notif.type),
+                          //   size: 10,
+                          // ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -97,7 +114,7 @@ class _UserNotificationState extends State<UserNotification> {
                                 fontWeight: notif.read
                                     ? FontWeight.normal
                                     : FontWeight.bold,
-                                color: notif.read ? lDisableText : lCardTitle,
+                                color: _getStatusColor(notif.type),
                               ),
                             ),
                           ),
