@@ -48,3 +48,8 @@ SELECT id, name FROM devices WHERE cage_id IS NULL;
 UPDATE devices
 SET status = $1
 WHERE id = $2;
+
+-- name: update_device_name
+UPDATE devices
+SET name = $1
+WHERE id = $2;

@@ -200,3 +200,14 @@ func (s *DeviceService) UpdateDeviceStatus(ctx context.Context, deviceID, status
 
 	return nil
 }
+
+func (s *DeviceService) UpdateDeviceName(ctx context.Context, deviceID, newNameDevice string) error {
+	// Kiểm tra tên tốn tại
+
+	err := s.DeviceRepo.UpdateDeviceName(ctx, deviceID, newNameDevice)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

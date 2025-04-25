@@ -221,3 +221,17 @@ func (r *DeviceRepository) UpdateDeviceStatus(ctx context.Context, deviceID, sta
 
 	return nil
 }
+
+func (r *DeviceRepository) UpdateDeviceName(ctx context.Context, deviceID, newNameDevice string) error {
+	query, err := queries.GetQuery("update_device_name") 
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, newNameDevice, deviceID)
+	if err != nil {
+		return errors.New("failed to update device name: " + err.Error())
+	}
+
+	return nil
+}
