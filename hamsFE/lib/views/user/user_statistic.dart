@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:hamsFE/views/constants.dart';
-
 
 class ChartData {
   final String day;
@@ -19,7 +17,7 @@ class ChartData {
     } catch (e) {
       // If parsing fails, use the string as is (assuming it's already a short day name)
     }
-    
+
     return ChartData(
       day: dayValue,
       value: (json['value'] as num).toDouble(),
@@ -47,7 +45,7 @@ class _ChartExampleState extends State<ChartExample> {
   ];
 
   late final List<ChartData> chartData;
-  
+
   @override
   void initState() {
     super.initState();
@@ -70,10 +68,12 @@ class _ChartExampleState extends State<ChartExample> {
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 30,  // Reduced since we have shorter day names now
+                  reservedSize:
+                      30, // Reduced since we have shorter day names now
                   interval: 1,
                   getTitlesWidget: (value, meta) {
-                    if (value.toInt() < 0 || value.toInt() >= chartData.length) {
+                    if (value.toInt() < 0 ||
+                        value.toInt() >= chartData.length) {
                       return const Text('');
                     }
                     return Padding(
@@ -81,7 +81,8 @@ class _ChartExampleState extends State<ChartExample> {
                       child: Text(
                         chartData[value.toInt()].day,
                         style: const TextStyle(
-                          fontSize: 12,  // Back to original size since we have shorter names
+                          fontSize:
+                              12, // Back to original size since we have shorter names
                         ),
                       ),
                     );

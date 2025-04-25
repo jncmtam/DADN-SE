@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hamsFE/controllers/apis.dart';
 import 'package:hamsFE/models/noti.dart';
-import 'package:hamsFE/views/temp.dart';
 import 'package:hamsFE/views/user/user_home.dart';
 import 'package:hamsFE/views/user/user_notification.dart';
 import 'package:hamsFE/views/user/user_profile.dart';
