@@ -8,6 +8,7 @@
 bin/
 build/
 vendor/
+hamsBE/main
 
 # Dependencies
 **/node_modules/

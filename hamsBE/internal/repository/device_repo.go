@@ -205,3 +205,19 @@ func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID 
 
 	return count, nil
 }
+
+
+
+func (r *DeviceRepository) UpdateDeviceStatus(ctx context.Context, deviceID, status string) error {
+	query, err := queries.GetQuery("update_device_status") 
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, status, deviceID)
+	if err != nil {
+		return errors.New("failed to update device status: " + err.Error())
+	}
+
+	return nil
+}

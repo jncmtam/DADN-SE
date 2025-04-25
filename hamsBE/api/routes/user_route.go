@@ -393,6 +393,123 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
+		// Set device status
+		r.PUT("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+		
+			var req struct {
+				Status string `json:"status"` // on/off/auto, refill/off/auto
+			}
+		
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+		
+			// TODO: lookup device info from deviceID (get deviceType, userID, cageID)
+			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}  
+			userID := "user1"
+			cageID := "cage1"
+		
+			var action int
+			
+			switch req.Status {
+			case "on":
+				action = 1
+			case "off":
+				action = 0
+			case "auto":
+				action = 2
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+				return
+			}
+		
+			err = service.HandleDeviceAction(userID, cageID, device.ID, device.Type, action)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+	
+			err = deviceService.UpdateDeviceStatus(c.Request.Context(), deviceID, req.Status)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Device status updated successfully",
+			})
+		})
+
+		// Set cage status 
+		r.PUT("/cages/:cageID", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			deviceID := c.Param("cageID")
+		
+			var req struct {
+				Status string `json:"status"` // on/off/auto, refill/off/auto
+			}
+		
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+
+			// Neu status là off thì luu giu trang thái cuối cùng và chuyển sang status off tất cả các thiết bị 
+			// Nếu status là on thì gán lại các last status cho status 
+			
+		
+			// TODO: lookup device info from deviceID (get deviceType, userID, cageID)
+			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}  
+			userID := "user1"
+			cageID := "cage1"
+		
+			var action int
+			switch req.Status {
+			case "on":
+				action = 1
+			case "off":
+				action = 0
+			case "auto":
+				action = 2
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+				return
+			}
+		
+			err = service.HandleDeviceAction(userID, cageID, device.ID, device.Type, action)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+	
+			err = deviceService.UpdateDeviceStatus(c.Request.Context(), deviceID, req.Status)
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			
+
+			
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Device status updated successfully",
+			})
+		})
+		
 	}
 }
 

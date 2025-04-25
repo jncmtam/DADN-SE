@@ -3,13 +3,18 @@ module hamstercare
 go 1.23.0
 
 require (
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 )
 
-require github.com/sendgrid/rest v2.6.9+incompatible // indirect
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/sendgrid/rest v2.6.9+incompatible // indirect
+	golang.org/x/sync v0.12.0 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.12.6 // indirect
