@@ -424,7 +424,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			case "off":
 				action = 0
 			case "auto":
-				action = 2
+				action = 0
 			default:
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
 				return
