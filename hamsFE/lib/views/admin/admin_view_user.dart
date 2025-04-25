@@ -83,16 +83,6 @@ class _ViewUserState extends State<AdminViewUser> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Avatar
-                Center(
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundImage: NetworkImage('https://example.com/default-avatar.png',
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16),
-                // Name
                 Text(
                   participant.name,
                   style: TextStyle(

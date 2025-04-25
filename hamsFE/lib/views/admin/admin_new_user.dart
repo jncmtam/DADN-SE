@@ -63,24 +63,27 @@ class _CreateUser extends State<AddUser> {
                   Text(
                     'Add user',
                     style: TextStyle(
-                    color: kBase0,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                      color: kBase0,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   SizedBox(width: 50,)
                 ],
               ),
-
             ),
-            Expanded(child: Container(
-              padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
-              decoration: BoxDecoration(
-                color: kBase0,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20))
-              ),
-              child: _form(context),
-            ))
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                decoration: BoxDecoration(
+                  color: kBase0,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20))
+                ),
+                child: SingleChildScrollView(
+                  child: _form(context),
+                ),
+              )
+            )
           ],
         )
       ),
