@@ -4,7 +4,7 @@ BEGIN
         CREATE TYPE condition_enum AS ENUM ('>', '<', '=');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'action_enum') THEN
-        CREATE TYPE action_enum AS ENUM ('turn_on', 'turn_off', 'refill', 'lock');
+        CREATE TYPE action_enum AS ENUM ('turn_on', 'turn_off');
     END IF;
 END $$;
 

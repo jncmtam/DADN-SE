@@ -1,26 +1,27 @@
 package routes
 
 import (
-    "context"
-    "database/sql"
-    "encoding/json"
-    "errors"
-    "fmt"
-    "hamstercare/internal/database"
-    "hamstercare/internal/middleware"
-    "hamstercare/internal/model"
-    "hamstercare/internal/repository"
-    "hamstercare/internal/service"
-    "hamstercare/internal/websocket"
-    "log"
-    "net/http"
-    "time"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"hamstercare/internal/middleware"
+	"hamstercare/internal/model"
+	"hamstercare/internal/repository"
+	"hamstercare/internal/service"
+	"hamstercare/internal/websocket"
+	"log"
+	"net/http"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    gorillawebsocket "github.com/gorilla/websocket"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	gorillawebsocket "github.com/gorilla/websocket"
 )
 
-func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
+func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttClient mqtt.Client) {
     userRepo := repository.NewUserRepository(db)
     cageRepo := repository.NewCageRepository(db)
     cageService := service.NewCageService(cageRepo, userRepo)
@@ -33,7 +34,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
     scheduleRepo := repository.NewScheduleRepository(db)
     scheduleService := service.NewScheduleService(scheduleRepo)
 
-    // Start sensor monitoring in the background
     go monitorSensors(db, wsHub)
 
     r.Use(middleware.JWTMiddleware())
@@ -48,7 +48,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             c.JSON(http.StatusOK, user)
         })
 
-        // Lấy danh sách chuồng (cages) của user
         r.GET("/cages", func(c *gin.Context) {
             userID, exists := c.Get("user_id")
             if !exists {
@@ -78,7 +77,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             c.JSON(http.StatusOK, cageRes)
         })
 
-        // Get General Info (number of active devices in all cages)
         r.GET("/cages/general-info", func(c *gin.Context) {
             userID, exists := c.Get("user_id")
             if !exists {
@@ -97,7 +95,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             c.JSON(http.StatusOK, gin.H{"active_devices": count})
         })
 
-        // Lấy danh sách sensor trong 1 cage
         r.GET("/cages/:cageID/sensors", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
             cageID := c.Param("cageID")
 
@@ -113,7 +110,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Lấy dữ liệu sensor mới nhất qua HTTP
         r.GET("/cages/:cageID/sensors-data", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
             cageID := c.Param("cageID")
 
@@ -144,19 +140,18 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                     "id":         id,
                     "value":      value,
                     "unit":       unit,
-                    "timestamp":  createdAt.Format(time.RFC3339),
+                    "timestamp":  createdAt.Unix(),
                 }
             }
 
             c.JSON(http.StatusOK, sensorData)
         })
 
-        // Lấy thống kê nước tiêu thụ
         r.GET("/cages/:cageID/statistics", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
             cageID := c.Param("cageID")
-            rangeType := c.Query("range") // daily, weekly, monthly
-            startDate := c.Query("start_date") // YYYY-MM-DD
-            endDate := c.Query("end_date") // YYYY-MM-DD
+            rangeType := c.Query("range")
+            startDate := c.Query("start_date")
+            endDate := c.Query("end_date")
 
             var query string
             var args []interface{}
@@ -224,7 +219,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 countDays++
             }
 
-            // Calculate summary
             summary := map[string]interface{}{
                 "total_refills": totalRefills,
             }
@@ -240,7 +234,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Cấu hình ngưỡng thông báo sử dụng nước cao
         r.PUT("/cages/:cageID/settings", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
             cageID := c.Param("cageID")
 
@@ -271,7 +264,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // WebSocket endpoint cho dữ liệu sensor và thống kê thời gian thực
         r.GET("/cages/:cageID/sensors-data/ws", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
             cageID := c.Param("cageID")
             userID, exists := c.Get("user_id")
@@ -281,12 +273,11 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Upgrade HTTP connection to WebSocket
             upgrader := gorillawebsocket.Upgrader{
                 ReadBufferSize:  1024,
                 WriteBufferSize: 1024,
                 CheckOrigin: func(r *http.Request) bool {
-                    return true // Adjust for production
+                    return true
                 },
             }
             ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -295,7 +286,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Register client with WebSocket hub
             client := &websocket.Client{
                 UserID: userID.(string),
                 CageID: cageID,
@@ -304,12 +294,43 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             }
             wsHub.Register <- client
 
-            // Start client read/write loops
+            client.WritePump()
+            go client.ReadPump(wsHub)
+        })
+
+        r.GET("/ws/notifications", func(c *gin.Context) {
+            userID, exists := c.Get("user_id")
+            if !exists {
+                log.Printf("[ERROR] user_id not found in context")
+                c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+                return
+            }
+
+            upgrader := gorillawebsocket.Upgrader{
+                ReadBufferSize:  1024,
+                WriteBufferSize: 1024,
+                CheckOrigin: func(r *http.Request) bool {
+                    return true
+                },
+            }
+            ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+            if err != nil {
+                log.Printf("[ERROR] Error upgrading to WebSocket: %v", err)
+                return
+            }
+
+            client := &websocket.Client{
+                UserID: userID.(string),
+                CageID: "",
+                Conn:   ws,
+                Send:   make(chan []byte),
+            }
+            wsHub.Register <- client
+
             go client.WritePump()
             go client.ReadPump(wsHub)
         })
 
-        // Xem chi tiết một chuồng (a cage) của user
         r.GET("/cages/:cageID", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
             cageID := c.Param("cageID")
 
@@ -367,7 +388,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Xem chi tiết một thiết bị (device) của user
         r.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
             deviceID := c.Param("deviceID")
 
@@ -407,7 +427,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Thêm automation rule cho thiết bị
         r.POST("/devices/:deviceID/automations", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
             deviceID := c.Param("deviceID")
 
@@ -430,21 +449,12 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            validActions := map[string]bool{"turn_on": true, "turn_off": true, "refill": true, "lock": true}
+            validActions := map[string]bool{"turn_on": true, "turn_off": true}
             if !validActions[req.Action] {
                 c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid action"})
                 return
             }
 
-            if req.Action == "refill" || req.Action == "lock" {
-                if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
-                    log.Printf("[ERROR] %v", err)
-                    c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-                    return
-                }
-            }
-
-            // Get sensor unit
             var sensorUnit string
             err := db.QueryRowContext(c.Request.Context(), `
                 SELECT unit FROM sensors WHERE id = $1
@@ -482,7 +492,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Xóa automation rule
         r.DELETE("/automations/:ruleID", ownershipMiddleware(automationRepo, "ruleID"), func(c *gin.Context) {
             ruleID := c.Param("ruleID")
 
@@ -507,14 +516,13 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Thêm API tạo schedule
         r.POST("/devices/:deviceID/schedules", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
             deviceID := c.Param("deviceID")
 
             var req struct {
                 ExecutionTime string   `json:"execution_time" binding:"required"`
                 Days          []string `json:"days" binding:"required"`
-                Action        string   `json:"action" binding:"required,oneof=turn_on turn_off refill lock"`
+                Action        string   `json:"action" binding:"required,oneof=turn_on turn_off"`
             }
 
             if err := c.ShouldBindJSON(&req); err != nil {
@@ -523,7 +531,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Kiểm tra ExecutionTime có đúng định dạng HH:MM không
             parsedTime, parseErr := time.Parse("15:04", req.ExecutionTime)
             if parseErr != nil {
                 log.Printf("[ERROR] due to invalid execution_time format: %v", parseErr.Error())
@@ -531,7 +538,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Kiểm tra Days có giá trị hợp lệ không
             validDays := map[string]bool{
                 "mon": true, "tue": true, "wed": true, "thu": true, "fri": true, "sat": true, "sun": true,
             }
@@ -539,14 +545,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 if !validDays[day] {
                     log.Printf("[ERROR] Invalid day in schedule: %s", day)
                     c.JSON(http.StatusBadRequest, gin.H{"error": "days must only contain values: mon, tue, wed, thu, fri, sat, sun"})
-                    return
-                }
-            }
-
-            if req.Action == "refill" || req.Action == "lock" {
-                if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
-                    log.Printf("[ERROR] %v", err)
-                    c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
                     return
                 }
             }
@@ -571,7 +569,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Thêm API xóa schedule
         r.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
             ruleID := c.Param("ruleID")
 
@@ -596,7 +593,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // Thêm API điều khiển thiết bị thủ công
         r.POST("/devices/:deviceID/control", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
             deviceID := c.Param("deviceID")
             userID, exists := c.Get("user_id")
@@ -607,7 +603,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             }
 
             var req struct {
-                Action string `json:"action" binding:"required,oneof=turn_on turn_off refill lock"`
+                Action string `json:"action" binding:"required,oneof=turn_on turn_off"`
             }
 
             if err := c.ShouldBindJSON(&req); err != nil {
@@ -616,7 +612,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Get current device status
             var currentStatus string
             err := db.QueryRowContext(c.Request.Context(), `
                 SELECT status FROM devices WHERE id = $1
@@ -627,22 +622,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Prevent "refill" if device is locked
-            if currentStatus == "locked" && req.Action == "refill" {
-                c.JSON(http.StatusForbidden, gin.H{"error": "Cannot refill while device is locked"})
-                return
-            }
-
-            // Validate action for device type
-            if req.Action == "refill" || req.Action == "lock" {
-                if err := deviceService.ValidateDeviceAction(c.Request.Context(), deviceID, req.Action); err != nil {
-                    log.Printf("[ERROR] Invalid action for device %s: %v", deviceID, err)
-                    c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-                    return
-                }
-            }
-
-            // Get device details for cage_id and user_id
             device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
             if err != nil {
                 log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err)
@@ -650,75 +629,72 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Map action to status
             var newStatus string
             switch req.Action {
             case "turn_on":
                 newStatus = "on"
             case "turn_off":
                 newStatus = "off"
-            case "refill":
-                newStatus = "on" // Assuming refill sets the device to "on"
-            case "lock":
-                newStatus = "locked"
             }
 
-            // Update device status in database
             _, err = db.ExecContext(c.Request.Context(), `
                 UPDATE devices
                 SET status = $1, last_status = status, updated_at = $2
                 WHERE id = $3
-            `, newStatus, time.Now().Format(time.RFC3339), deviceID)
+            `, newStatus, time.Now(), deviceID)
             if err != nil {
                 log.Printf("[ERROR] Error updating device %s status: %v", deviceID, err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
                 return
             }
 
-            // If action is refill and not locked, update water statistic
-            if req.Action == "refill" && currentStatus != "locked" {
-                if err := database.UpdateWaterStatistic(db, device.CageID); err != nil {
-                    log.Printf("[ERROR] Error updating water statistic: %v", err)
-                }
+            var username, cagename string
+            err = db.QueryRowContext(c.Request.Context(), `
+                SELECT u.username, c.name
+                FROM users u
+                JOIN cages c ON c.user_id = u.id
+                WHERE c.id = $1
+            `, device.CageID).Scan(&username, &cagename)
+            if err != nil {
+                log.Printf("[ERROR] Error fetching username and cagename: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+                return
             }
 
-            // Publish to MQTT
-            topic := fmt.Sprintf("hamster/%s/%s/device/%s", userID.(string), device.CageID, deviceID)
+            topic := fmt.Sprintf("hamster/%s/%s/device/%s", username, cagename, deviceID)
             payload := map[string]interface{}{
-                "device_id":   deviceID,
-                "device_type": device.Type,
-                "value":       req.Action,
-                "timestamp":   time.Now().Format(time.RFC3339),
+                "username":  username,
+                "cagename":  cagename,
+                "type":      "device",
+                "id":        deviceID,
+                "dataname":  device.Name,
+                "value":     req.Action,
+                "time":      time.Now().Unix(),
             }
             payloadBytes, err := json.Marshal(payload)
             if err != nil {
                 log.Printf("[ERROR] Error marshaling MQTT payload: %v", err)
             } else {
                 log.Printf("[INFO] Publishing to MQTT topic %s: %s", topic, string(payloadBytes))
-                // Assume MQTT client is accessible via mqtt.Client
-                // mqtt.Client.Publish(topic, 0, false, payloadBytes)
+                mqttClient.Publish(topic, 0, false, payloadBytes)
             }
 
-            // Send notification via WebSocket
-            notification := websocket.Notification{
-                Type:    "device_action",
-                Message: fmt.Sprintf("Device %s %s", device.Name, req.Action),
-                CageID:  device.CageID,
-                Time:    time.Now().Format(time.RFC3339),
-            }
-            if currentStatus == "locked" && req.Action == "refill" {
-                notification.Message = fmt.Sprintf("Cannot refill device %s: device is locked", device.Name)
-            }
+            title := fmt.Sprintf("Device %s: Action %s executed", device.Name, req.Action)
+            messageText := fmt.Sprintf("Device %s %s", device.Name, req.Action)
             wsHub.Broadcast <- websocket.Message{
-                CageID: device.CageID,
-                Data:   notification,
+                UserID:  userID.(string),
+                Type:    "info",
+                Title:   title,
+                Message: messageText,
+                CageID:  device.CageID,
+                Time:    time.Now().Unix(),
+                Value:   0.0,
             }
 
-            // Store the device action notification in the database
             _, err = db.ExecContext(c.Request.Context(), `
-                INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            `, userID.(string), device.CageID, "device_action", notification.Message, false, time.Now())
+                INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, uuid.New().String(), userID.(string), device.CageID, "info", title, messageText, false, time.Now())
             if err != nil {
                 log.Printf("[ERROR] Error storing device action notification: %v", err)
             }
@@ -728,7 +704,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // API to get notifications for the user
         r.GET("/notifications", func(c *gin.Context) {
             userID, exists := c.Get("user_id")
             if !exists {
@@ -737,11 +712,10 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Query unread notifications
             rows, err := db.QueryContext(c.Request.Context(), `
-                SELECT id, user_id, cage_id, type, message, is_read, created_at
+                SELECT id, user_id, cage_id, type, title, message, is_read, created_at
                 FROM notifications
-                WHERE user_id = $1 AND is_read = FALSE
+                WHERE user_id = $1
                 ORDER BY created_at DESC
             `, userID.(string))
             if err != nil {
@@ -751,14 +725,20 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             }
             defer rows.Close()
 
-            notifications := []model.Notification{}
+            notifications := []map[string]interface{}{}
             for rows.Next() {
                 var n model.Notification
-                if err := rows.Scan(&n.ID, &n.UserID, &n.CageID, &n.Type, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
+                if err := rows.Scan(&n.ID, &n.UserID, &n.CageID, &n.Type, &n.Title, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
                     log.Printf("[ERROR] Error scanning notification: %v", err)
                     continue
                 }
-                notifications = append(notifications, n)
+                notifications = append(notifications, map[string]interface{}{
+                    "id":        n.ID,
+                    "title":     n.Title,
+                    "timestamp": n.CreatedAt.Unix(),
+                    "type":      n.Type,
+                    "read":      n.IsRead,
+                })
             }
 
             c.JSON(http.StatusOK, gin.H{
@@ -766,8 +746,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
             })
         })
 
-        // API to mark a notification as read
-        r.PUT("/notifications/:notificationID/read", func(c *gin.Context) {
+        r.PATCH("/notifications/:notiID/read", func(c *gin.Context) {
             userID, exists := c.Get("user_id")
             if !exists {
                 log.Printf("[ERROR] user_id not found in context")
@@ -775,13 +754,12 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            notificationID := c.Param("notificationID")
+            notiID := c.Param("notiID")
 
-            // Verify the notification belongs to the user
             var ownerID string
             err := db.QueryRowContext(c.Request.Context(), `
                 SELECT user_id FROM notifications WHERE id = $1
-            `, notificationID).Scan(&ownerID)
+            `, notiID).Scan(&ownerID)
             if err != nil {
                 if err == sql.ErrNoRows {
                     c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
@@ -797,12 +775,11 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
                 return
             }
 
-            // Mark the notification as read
             _, err = db.ExecContext(c.Request.Context(), `
                 UPDATE notifications
                 SET is_read = TRUE
                 WHERE id = $1
-            `, notificationID)
+            `, notiID)
             if err != nil {
                 log.Printf("[ERROR] Error marking notification as read: %v", err)
                 c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
@@ -816,7 +793,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub) {
     }
 }
 
-// monitorSensors periodically checks all sensor data against automation rules and sends notifications if conditions are met.
 func monitorSensors(db *sql.DB, wsHub *websocket.Hub) {
     ticker := time.NewTicker(10 * time.Second)
     defer ticker.Stop()
@@ -843,7 +819,7 @@ func monitorSensors(db *sql.DB, wsHub *websocket.Hub) {
             DeviceID   string
             Condition  string
             Threshold  float64
-            Unit       string // Now fetched from sensors
+            Unit       string
             Action     string
             CageID     string
             SensorType string
@@ -911,29 +887,25 @@ func monitorSensors(db *sql.DB, wsHub *websocket.Hub) {
                     actionVerb = "bật"
                 case "turn_off":
                     actionVerb = "tắt"
-                case "refill":
-                    actionVerb = "bơm nước cho"
-                case "lock":
-                    actionVerb = "khóa"
                 }
+                title := fmt.Sprintf("Cage %s: Sensor alert triggered", rule.CageID)
                 message := fmt.Sprintf("%s %.1f%s vượt ngưỡng %.1f%s: Hãy %s %s",
                     rule.SensorType, value, rule.Unit, rule.Threshold, rule.Unit, actionVerb, rule.DeviceName)
 
-                wsNotification := websocket.Notification{
-                    Type:    "sensor_alert",
+                wsHub.Broadcast <- websocket.Message{
+                    UserID:  rule.UserID,
+                    Type:    "warning",
+                    Title:   title,
                     Message: message,
                     CageID:  rule.CageID,
-                    Time:    time.Now().Format(time.RFC3339),
-                }
-                wsHub.Broadcast <- websocket.Message{
-                    CageID: rule.CageID,
-                    Data:   wsNotification,
+                    Time:    time.Now().Unix(),
+                    Value:   value,
                 }
 
                 _, err = db.ExecContext(context.Background(), `
-                    INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                `, rule.UserID, rule.CageID, "sensor_alert", message, false, time.Now())
+                    INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                `, uuid.New().String(), rule.UserID, rule.CageID, "warning", title, message, false, time.Now())
                 if err != nil {
                     log.Printf("[ERROR] Error storing notification: %v", err)
                 }
@@ -945,13 +917,11 @@ func monitorSensors(db *sql.DB, wsHub *websocket.Hub) {
     }
 }
 
-// OwnershipChecker định nghĩa interface kiểm tra quyền sở hữu
 type ownershipChecker interface {
     IsOwnedByUser(ctx context.Context, userID, entityID string) (bool, error)
     IsExistsID(ctx context.Context, entityID string) (bool, error)
 }
 
-// ownershipMiddleware kiểm tra quyền sở hữu của user đối với thực thể (cage, device, automation_rule)
 func ownershipMiddleware(repo ownershipChecker, paramName string) gin.HandlerFunc {
     return func(c *gin.Context) {
         userID, exists := c.Get("user_id")

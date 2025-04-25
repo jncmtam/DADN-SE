@@ -5,586 +5,287 @@ import (
     "encoding/json"
     "fmt"
     "log"
+    "strconv"
     "strings"
     "time"
 
-    "hamstercare/internal/database"
-    "hamstercare/internal/model"
+    mqtt "github.com/eclipse/paho.mqtt.golang"
+    "github.com/google/uuid"
     "hamstercare/internal/websocket"
-
-    "github.com/eclipse/paho.mqtt.golang"
 )
 
-var db *sql.DB
-var client mqtt.Client
-var wsHub *websocket.Hub
+type MessagePayload struct {
+    Username  string  `json:"username"`
+    Cagename  string  `json:"cagename"`
+    Type      string  `json:"type"`
+    ID        int     `json:"id"`
+    Dataname  string  `json:"dataname"`
+    Value     string  `json:"value"` // Changed to string
+    Time      int64   `json:"time"`
+}
 
-// ConnectMQTT connects to the MQTT broker
-func ConnectMQTT(database *sql.DB, hub *websocket.Hub) mqtt.Client {
-    db = database
-    wsHub = hub
-    opts := mqtt.NewClientOptions()
-    opts.AddBroker("tcp://localhost:1883")
-    opts.SetClientID("go_mqtt_client")
-    opts.SetKeepAlive(60 * time.Second)
-    opts.SetPingTimeout(1 * time.Second)
-    opts.SetAutoReconnect(true)
-    opts.OnConnect = func(c mqtt.Client) {
-        log.Println("Connected to MQTT broker")
-        SubscribeToMQTT(c)
-        go func() {
-            if !isCheckScheduleRulesRunning() {
-                checkScheduleRules()
-            }
-        }()
-    }
-    opts.OnConnectionLost = func(c mqtt.Client, err error) {
-        log.Printf("MQTT connection lost: %v", err)
-    }
+func ConnectMQTT(db *sql.DB, wsHub *websocket.Hub) mqtt.Client {
+    broker := "tcp://localhost:1883"
+    clientID := "hamstercare-mqtt-" + uuid.New().String()
+    opts := mqtt.NewClientOptions().
+        AddBroker(broker).
+        SetClientID(clientID).
+        SetDefaultPublishHandler(func(client mqtt.Client, msg mqtt.Message) {
+            handleMessage(db, wsHub, msg)
+        })
 
-    client = mqtt.NewClient(opts)
+    client := mqtt.NewClient(opts)
     if token := client.Connect(); token.Wait() && token.Error() != nil {
         log.Fatalf("Error connecting to MQTT broker: %v", token.Error())
     }
+    log.Println("Connected to MQTT broker")
+
+    if token := client.Subscribe("hamster/#", 0, nil); token.Wait() && token.Error() != nil {
+        log.Fatalf("Error subscribing to topic: %v", token.Error())
+    }
+    log.Println("Subscribed to hamster/#")
     return client
 }
 
-// SensorData represents sensor data from MQTT
-type SensorData struct {
-    SensorID   string  `json:"sensor_id"`
-    SensorType string  `json:"sensor_type"`
-    Value      float64 `json:"value"`
-    Timestamp  string  `json:"timestamp"`
-}
+func handleMessage(db *sql.DB, wsHub *websocket.Hub, msg mqtt.Message) {
+    topic := msg.Topic()
+    payload := msg.Payload()
+    log.Printf("Received payload: %s", string(payload))
 
-// DeviceData represents device data from MQTT
-type DeviceData struct {
-    DeviceID   string `json:"device_id"`
-    DeviceType string `json:"device_type"`
-    Value      string `json:"value"`
-    Timestamp  string `json:"timestamp"`
-}
-
-// MQTTHandler processes incoming MQTT messages
-func MQTTHandler(client mqtt.Client, msg mqtt.Message) {
-    topicParts := strings.Split(msg.Topic(), "/")
-    if len(topicParts) != 5 || topicParts[0] != "hamster" {
-        log.Printf("Invalid topic format: %s", msg.Topic())
+    parts := strings.Split(topic, "/")
+    if len(parts) != 5 || parts[0] != "hamster" {
+        log.Printf("Invalid topic format: %s", topic)
         return
     }
-    userID, cageID, msgType, id := topicParts[1], topicParts[2], topicParts[3], topicParts[4]
+    typeStr := parts[3]
 
-    var payload map[string]interface{}
-    if err := json.Unmarshal(msg.Payload(), &payload); err != nil {
-        log.Printf("Error parsing payload: %v", err)
+    var message MessagePayload
+    if err := json.Unmarshal(payload, &message); err != nil {
+        log.Printf("Failed to unmarshal payload: %v", err)
         return
     }
 
-    var validCageID string
-    err := db.QueryRow(`
-        SELECT id FROM cages WHERE id = $1 AND user_id = $2
-    `, cageID, userID).Scan(&validCageID)
-    if err == sql.ErrNoRows {
-        log.Printf("Invalid cage_id %s or user_id %s", cageID, userID)
-        return
-    } else if err != nil {
-        log.Printf("Error validating cage: %v", err)
-        return
-    }
-
-    if msgType == "sensor" {
-        sensorData, ok := parseSensorData(payload, id)
-        if !ok {
-            log.Printf("Invalid sensor payload: %v", payload)
+    var value float64
+    var err error
+    if typeStr == "device" {
+        // For devices, map string actions to float64 for compatibility
+        switch message.Value {
+        case "turn_on", "refill":
+            value = 1.0
+        case "turn_off", "lock":
+            value = 0.0
+        default:
+            value, err = strconv.ParseFloat(message.Value, 64)
+            if err != nil {
+                log.Printf("Failed to parse device value '%s' as float64: %v", message.Value, err)
+                return
+            }
+        }
+    } else {
+        value, err = strconv.ParseFloat(message.Value, 64)
+        if err != nil {
+            log.Printf("Failed to parse sensor value '%s' as float64: %v", message.Value, err)
             return
         }
-        if err := processSensorData(sensorData, cageID, userID); err != nil {
-            log.Printf("Error processing sensor data: %v", err)
-        }
-    } else if msgType == "device" {
-        deviceData, ok := parseDeviceData(payload, id)
-        if !ok {
-            log.Printf("Invalid device payload: %v", payload)
-            return
-        }
-        if err := processDeviceData(deviceData, cageID, userID); err != nil {
-            log.Printf("Error processing device data: %v", err)
-        }
-    }
-}
-
-// parseSensorData extracts sensor data from payload
-func parseSensorData(payload map[string]interface{}, sensorID string) (SensorData, bool) {
-    sensor := SensorData{SensorID: sensorID}
-    if id, ok := payload["sensor_id"].(string); !ok || id != sensorID {
-        return sensor, false
-    }
-    if sensorType, ok := payload["sensor_type"].(string); ok {
-        sensor.SensorType = sensorType
-    } else {
-        return sensor, false
-    }
-    if value, ok := payload["value"].(float64); ok {
-        sensor.Value = value
-    } else {
-        return sensor, false
-    }
-    if ts, ok := payload["timestamp"].(string); ok {
-        sensor.Timestamp = ts
-    } else {
-        sensor.Timestamp = time.Now().Format(time.RFC3339)
-    }
-    return sensor, true
-}
-
-// parseDeviceData extracts device data from payload
-func parseDeviceData(payload map[string]interface{}, deviceID string) (DeviceData, bool) {
-    device := DeviceData{DeviceID: deviceID}
-    if id, ok := payload["device_id"].(string); !ok || id != deviceID {
-        return device, false
-    }
-    if deviceType, ok := payload["device_type"].(string); ok {
-        device.DeviceType = deviceType
-    } else {
-        return device, false
-    }
-    if value, ok := payload["value"].(string); ok {
-        device.Value = value
-    } else {
-        return device, false
-    }
-    if ts, ok := payload["timestamp"].(string); ok {
-        device.Timestamp = ts
-    } else {
-        device.Timestamp = time.Now().Format(time.RFC3339)
-    }
-    return device, true
-}
-
-// processSensorData saves sensor data and checks automation rules
-func processSensorData(sensor SensorData, cageID, userID string) error {
-    var existingSensorID string
-    err := db.QueryRow(`
-        SELECT id FROM sensors WHERE id = $1 AND cage_id = $2
-    `, sensor.SensorID, cageID).Scan(&existingSensorID)
-
-    sensorModel := &model.Sensor{
-        ID:     sensor.SensorID,
-        Name:   sensor.SensorID,
-        Type:   sensor.SensorType,
-        Value:  sensor.Value,
-        Unit:   getSensorUnit(sensor.SensorType),
-        CageID: cageID,
     }
 
+    var userID string
+    err = db.QueryRow("SELECT id FROM users WHERE username = $1", message.Username).Scan(&userID)
     if err == sql.ErrNoRows {
-        if err := database.InsertSensorData(db, sensorModel); err != nil {
-            return fmt.Errorf("error inserting sensor: %v", err)
-        }
+        log.Printf("User not found: %s", message.Username)
+        return
     } else if err != nil {
-        return fmt.Errorf("error checking sensor: %v", err)
+        log.Printf("Error querying user: %v", err)
+        return
+    }
+
+    var cageID string
+    err = db.QueryRow("SELECT id FROM cages WHERE name = $1 AND user_id = $2", message.Cagename, userID).Scan(&cageID)
+    if err == sql.ErrNoRows {
+        log.Printf("Cage not found: %s for user %s", message.Cagename, message.Username)
+        return
+    } else if err != nil {
+        log.Printf("Error querying cage: %v", err)
+        return
+    }
+
+    timestamp := time.Unix(message.Time, 0)
+
+    if typeStr == "sensor" {
+        processSensorData(db, wsHub, userID, cageID, message, value, timestamp)
+    } else if typeStr == "device" {
+        processDeviceData(db, wsHub, userID, cageID, message, value, timestamp)
     } else {
-        if err := database.UpdateSensorData(db, sensorModel); err != nil {
-            return fmt.Errorf("error updating sensor: %v", err)
-        }
+        log.Printf("Unknown type in topic: %s", typeStr)
     }
-
-    dataPayload := map[string]interface{}{
-        "type":      sensor.SensorType,
-        "value":     sensor.Value,
-        "unit":      sensorModel.Unit,
-        "timestamp": sensor.Timestamp,
-    }
-    if sensor.SensorType == "distance" {
-        waterLevel := (20.0 - sensor.Value) / 20.0 * 100.0
-        if waterLevel < 0 {
-            waterLevel = 0
-        } else if waterLevel > 100 {
-            waterLevel = 100
-        }
-        dataPayload["water_level"] = waterLevel
-    }
-    wsHub.Broadcast <- websocket.Message{
-        CageID: cageID,
-        Data:   dataPayload,
-    }
-
-    checkCriticalValues(sensor, cageID, userID)
-    return checkAutomationRules(sensor, cageID, userID)
 }
 
-// processDeviceData saves device status updates
-func processDeviceData(device DeviceData, cageID, userID string) error {
-    var existingDeviceID string
+func processSensorData(db *sql.DB, wsHub *websocket.Hub, userID, cageID string, message MessagePayload, value float64, timestamp time.Time) {
+    var sensorID, sensorType string
     err := db.QueryRow(`
-        SELECT id FROM devices WHERE id = $1 AND cage_id = $2
-    `, device.DeviceID, cageID).Scan(&existingDeviceID)
-
-    validStatuses := map[string]bool{
-        "on":     true,
-        "off":    true,
-        "auto":   true,
-        "locked": true,
-    }
-    if !validStatuses[device.Value] {
-        return fmt.Errorf("invalid device status: %s", device.Value)
-    }
-
-    status := device.Value
-    deviceModel := &model.Device{
-        ID:        device.DeviceID,
-        Name:      device.DeviceID,
-        Type:      device.DeviceType,
-        Status:    status,
-        LastStatus: status,
-        CageID:    cageID,
-        UpdatedAt: time.Now(),
-    }
-
+        SELECT id, type 
+        FROM sensors 
+        WHERE (name = $1 OR type = $2) AND cage_id = $3`, 
+        message.Dataname, message.Dataname, cageID).Scan(&sensorID, &sensorType)
     if err == sql.ErrNoRows {
-        if err := database.InsertDeviceData(db, deviceModel); err != nil {
-            return fmt.Errorf("error inserting device: %v", err)
-        }
+        log.Printf("Sensor not found for dataname %s in cage %s", message.Dataname, cageID)
+        return
     } else if err != nil {
-        return fmt.Errorf("error checking device: %v", err)
-    } else {
-        if err := database.UpdateDeviceData(db, deviceModel); err != nil {
-            return fmt.Errorf("error updating device: %v", err)
-        }
-    }
-
-    notification := websocket.Notification{
-        Type:    "device_status",
-        Message: fmt.Sprintf("Device %s status changed to %s", device.DeviceID, status),
-        CageID:  cageID,
-        Time:    time.Now().Format(time.RFC3339),
-    }
-    wsHub.Broadcast <- websocket.Message{
-        CageID: cageID,
-        Data:   notification,
+        log.Printf("Error querying sensor: %v", err)
+        return
     }
 
     _, err = db.Exec(`
-        INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
-    `, userID, cageID, "device_status", fmt.Sprintf("Device %s status changed to %s", device.DeviceID, status), false, time.Now())
+        UPDATE sensors 
+        SET value = $1, updated_at = $2 
+        WHERE id = $3`, 
+        value, timestamp, sensorID)
     if err != nil {
-        log.Printf("Error storing device status notification: %v", err)
+        log.Printf("Error updating sensor %s: %v", sensorID, err)
+        return
     }
 
-    return nil
+    checkCriticalValues(db, wsHub, userID, cageID, sensorID, sensorType, value, timestamp)
+    checkAutomationRules(db, wsHub, userID, cageID, sensorID, sensorType, value, timestamp)
 }
 
-// getSensorUnit returns the unit for a sensor type
-func getSensorUnit(sensorType string) string {
+func processDeviceData(db *sql.DB, wsHub *websocket.Hub, userID, cageID string, message MessagePayload, value float64, timestamp time.Time) {
+    var deviceID, deviceType string
+    err := db.QueryRow(`
+        SELECT id, type 
+        FROM devices 
+        WHERE (name = $1 OR type = $2) AND cage_id = $3`, 
+        message.Dataname, message.Dataname, cageID).Scan(&deviceID, &deviceType)
+    if err == sql.ErrNoRows {
+        log.Printf("Device not found for dataname %s in cage %s", message.Dataname, cageID)
+        return
+    } else if err != nil {
+        log.Printf("Error querying device: %v", err)
+        return
+    }
+
+    status := "off"
+    if value > 0 {
+        status = "on"
+    }
+
+    _, err = db.Exec(`
+        UPDATE devices 
+        SET status = $1, last_status = status, updated_at = $2 
+        WHERE id = $3`, 
+        status, timestamp, deviceID)
+    if err != nil {
+        log.Printf("Error updating device %s: %v", deviceID, err)
+        return
+    }
+
+    title := fmt.Sprintf("Device %s: Status changed", message.Dataname)
+    messageText := fmt.Sprintf("Device %s turned %s", message.Dataname, status)
+    createNotification(db, wsHub, userID, cageID, "info", title, messageText, timestamp, value)
+}
+
+func checkCriticalValues(db *sql.DB, wsHub *websocket.Hub, userID, cageID, sensorID, sensorType string, value float64, timestamp time.Time) {
+    var title, message string
+    notificationType := "warning"
+
     switch sensorType {
     case "temperature":
-        return "°C"
-    case "humidity":
-        return "%"
-    case "light":
-        return "lux"
-    case "distance":
-        return "cm"
-    case "infrared":
-        return ""
-    default:
-        return "unknown"
-    }
-}
-
-// checkCriticalValues sends notifications for critical sensor values
-func checkCriticalValues(sensor SensorData, cageID, userID string) {
-    var message string
-    switch sensor.SensorType {
-    case "temperature":
-        if sensor.Value > 30 {
-            message = fmt.Sprintf("High temperature detected: %.1f°C", sensor.Value)
-        } else if sensor.Value < 15 {
-            message = fmt.Sprintf("Low temperature detected: %.1f°C", sensor.Value)
+        if value < 15.0 {
+            title = "Cage: Low temperature"
+            message = fmt.Sprintf("Low temperature detected: %.1f°C", value)
+        } else if value > 30.0 {
+            title = "Cage: High temperature"
+            message = fmt.Sprintf("High temperature detected: %.1f°C", value)
         }
     case "humidity":
-        if sensor.Value > 80 {
-            message = fmt.Sprintf("High humidity detected: %.1f%%", sensor.Value)
-        } else if sensor.Value < 40 {
-            message = fmt.Sprintf("Low humidity detected: %.1f%%", sensor.Value)
+        if value > 80.0 {
+            title = "Cage: High humidity"
+            message = fmt.Sprintf("High humidity detected: %.1f%%", value)
         }
     case "distance":
-        waterLevel := (20.0 - sensor.Value) / 20.0 * 100.0
-        if waterLevel < 20 {
+        waterLevel := (20.0 - value) / 20.0 * 100
+        if waterLevel < 20.0 {
+            title = "Cage: Low water level"
             message = fmt.Sprintf("Low water level detected: %.1f%%", waterLevel)
         }
     }
 
-    if message != "" {
-        notification := websocket.Notification{
-            Type:    "critical_value",
-            Message: message,
-            CageID:  cageID,
-            Time:    time.Now().Format(time.RFC3339),
-        }
-        wsHub.Broadcast <- websocket.Message{
-            CageID: cageID,
-            Data:   notification,
-        }
-
-        _, err := db.Exec(`
-            INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
-        `, userID, cageID, "critical_value", message, false, time.Now())
-        if err != nil {
-            log.Printf("Error storing critical value notification: %v", err)
-        }
+    if title != "" {
+        createNotification(db, wsHub, userID, cageID, notificationType, title, message, timestamp, value)
     }
 }
 
-// checkAutomationRules evaluates automation rules for sensor data
-func checkAutomationRules(sensor SensorData, cageID, userID string) error {
+func checkAutomationRules(db *sql.DB, wsHub *websocket.Hub, userID, cageID, sensorID, sensorType string, value float64, timestamp time.Time) {
     rows, err := db.Query(`
-        SELECT id, sensor_id, device_id, condition, threshold, action, cage_id
-        FROM automation_rules
-        WHERE sensor_id = $1 AND cage_id = $2
-    `, sensor.SensorID, cageID)
+        SELECT id, device_id, condition, threshold, action 
+        FROM automation_rules 
+        WHERE sensor_id = $1 AND cage_id = $2`, 
+        sensorID, cageID)
     if err != nil {
-        return fmt.Errorf("error querying automation rules: %v", err)
+        log.Printf("Error querying automation rules: %v", err)
+        return
     }
     defer rows.Close()
 
     for rows.Next() {
-        var rule model.AutomationRule
-        if err := rows.Scan(&rule.ID, &rule.SensorID, &rule.DeviceID, &rule.Condition, &rule.Threshold, &rule.Action, &rule.CageID); err != nil {
-            log.Printf("Error scanning automation rule: %v", err)
+        var ruleID, deviceID, condition, action string
+        var threshold float64
+        if err := rows.Scan(&ruleID, &deviceID, &condition, &threshold, &action); err != nil {
+            log.Printf("Error scanning rule: %v", err)
             continue
         }
 
-        trigger := false
-        switch rule.Condition {
+        triggered := false
+        switch condition {
         case ">":
-            trigger = sensor.Value > rule.Threshold
+            triggered = value > threshold
         case "<":
-            trigger = sensor.Value < rule.Threshold
+            triggered = value < threshold
         case "=":
-            trigger = sensor.Value == rule.Threshold
+            triggered = value == threshold
         }
 
-        if trigger {
-            var deviceType string
-            err := db.QueryRow(`
-                SELECT type FROM devices WHERE id = $1 AND cage_id = $2
-            `, rule.DeviceID, cageID).Scan(&deviceType)
+        if triggered {
+            _, err = db.Exec(`
+                UPDATE devices 
+                SET status = $1, last_status = status, updated_at = $2 
+                WHERE id = $3`, 
+                action, timestamp, deviceID)
             if err != nil {
-                log.Printf("Error fetching device type for device %s: %v", rule.DeviceID, err)
-                deviceType = "unknown"
-            }
-
-            var newStatus string
-            switch rule.Action {
-            case "turn_on":
-                newStatus = "on"
-            case "turn_off":
-                newStatus = "off"
-            case "refill":
-                newStatus = "on"
-            case "lock":
-                newStatus = "locked"
-            default:
-                log.Printf("Unknown action: %s", rule.Action)
+                log.Printf("Error updating device %s: %v", deviceID, err)
                 continue
             }
 
-            _, err = db.Exec(`
-                UPDATE devices
-                SET status = $1, last_status = status, updated_at = $2
-                WHERE id = $3 AND cage_id = $4
-            `, newStatus, time.Now(), rule.DeviceID, cageID)
-            if err != nil {
-                log.Printf("Error updating device %s: %v", rule.DeviceID, err)
-            }
-
-            if rule.Action == "refill" {
-                if err := database.UpdateWaterStatistic(db, cageID); err != nil {
-                    log.Printf("Error updating water statistic: %v", err)
-                }
-            }
-
-            topic := fmt.Sprintf("hamster/%s/%s/device/%s", userID, cageID, rule.DeviceID)
-            payload := map[string]interface{}{
-                "device_id":   rule.DeviceID,
-                "device_type": deviceType,
-                "value":       rule.Action,
-                "timestamp":   time.Now().Format(time.RFC3339),
-            }
-            if payloadBytes, err := json.Marshal(payload); err == nil {
-                client.Publish(topic, 0, false, payloadBytes)
-                log.Printf("Published to %s: %s", topic, string(payloadBytes))
-            } else {
-                log.Printf("Error marshaling payload: %v", err)
-            }
-
-            notification := websocket.Notification{
-                Type:    "device_action",
-                Message: fmt.Sprintf("Automation rule triggered: Device %s %s", rule.DeviceID, rule.Action),
-                CageID:  cageID,
-                Time:    time.Now().Format(time.RFC3339),
-            }
-            wsHub.Broadcast <- websocket.Message{
-                CageID: cageID,
-                Data:   notification,
-            }
-
-            _, err = db.Exec(`
-                INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            `, userID, cageID, "device_action", fmt.Sprintf("Automation rule triggered: Device %s %s", rule.DeviceID, rule.Action), false, time.Now())
-            if err != nil {
-                log.Printf("Error storing automation rule notification: %v", err)
-            }
+            title := fmt.Sprintf("Device: Action %s executed", action)
+            message := fmt.Sprintf("Automation rule triggered: %s on device", action)
+            createNotification(db, wsHub, userID, cageID, "info", title, message, timestamp, value)
         }
-    }
-    return nil
-}
-
-// checkScheduleRules periodically checks schedule rules
-func checkScheduleRules() {
-    setCheckScheduleRulesRunning(true)
-    defer setCheckScheduleRulesRunning(false)
-
-    for {
-        now := time.Now()
-        currentTime := now.Format("15:04")
-        currentDay := strings.ToLower(now.Weekday().String()[:3])
-
-        rows, err := db.Query(`
-            SELECT id, device_id, execution_time, days, action, cage_id
-            FROM schedules
-            WHERE execution_time = $1
-        `, currentTime)
-        if err != nil {
-            log.Printf("Error querying schedule rules: %v", err)
-            time.Sleep(1 * time.Minute)
-            continue
-        }
-
-        for rows.Next() {
-            var rule model.ScheduleRule
-            var cageID string
-            if err := rows.Scan(&rule.ID, &rule.DeviceID, &rule.ExecutionTime, &rule.Days, &rule.Action, &cageID); err != nil {
-                log.Printf("Error scanning schedule rule: %v", err)
-                continue
-            }
-
-            for _, day := range rule.Days {
-                if day == currentDay {
-                    var userID string
-                    err := db.QueryRow(`
-                        SELECT user_id FROM cages WHERE id = $1
-                    `, cageID).Scan(&userID)
-                    if err != nil {
-                        log.Printf("Error fetching user_id for cage %s: %v", cageID, err)
-                        continue
-                    }
-
-                    var deviceType string
-                    err = db.QueryRow(`
-                        SELECT type FROM devices WHERE id = $1 AND cage_id = $2
-                    `, rule.DeviceID, cageID).Scan(&deviceType)
-                    if err != nil {
-                        log.Printf("Error fetching device type for device %s: %v", rule.DeviceID, err)
-                        deviceType = "unknown"
-                    }
-
-                    var newStatus string
-                    switch rule.Action {
-                    case "turn_on":
-                        newStatus = "on"
-                    case "turn_off":
-                        newStatus = "off"
-                    case "refill":
-                        newStatus = "on"
-                    case "lock":
-                        newStatus = "locked"
-                    default:
-                        log.Printf("Unknown action: %s", rule.Action)
-                        continue
-                    }
-
-                    _, err = db.Exec(`
-                        UPDATE devices
-                        SET status = $1, last_status = status, updated_at = $2
-                        WHERE id = $3 AND cage_id = $4
-                    `, newStatus, time.Now(), rule.DeviceID, cageID)
-                    if err != nil {
-                        log.Printf("Error updating device %s: %v", rule.DeviceID, err)
-                    }
-
-                    if rule.Action == "refill" {
-                        if err := database.UpdateWaterStatistic(db, cageID); err != nil {
-                            log.Printf("Error updating water statistic: %v", err)
-                        }
-                    }
-
-                    topic := fmt.Sprintf("hamster/%s/%s/device/%s", userID, cageID, rule.DeviceID)
-                    payload := map[string]interface{}{
-                        "device_id":   rule.DeviceID,
-                        "device_type": deviceType,
-                        "value":       rule.Action,
-                        "timestamp":   time.Now().Format(time.RFC3339),
-                    }
-                    if payloadBytes, err := json.Marshal(payload); err == nil {
-                        client.Publish(topic, 0, false, payloadBytes)
-                        log.Printf("Published to %s: %s", topic, string(payloadBytes))
-                    } else {
-                        log.Printf("Error marshaling payload: %v", err)
-                    }
-
-                    notification := websocket.Notification{
-                        Type:    "device_action",
-                        Message: fmt.Sprintf("Schedule rule triggered: Device %s %s", rule.DeviceID, rule.Action),
-                        CageID:  cageID,
-                        Time:    time.Now().Format(time.RFC3339),
-                    }
-                    wsHub.Broadcast <- websocket.Message{
-                        CageID: cageID,
-                        Data:   notification,
-                    }
-
-                    _, err = db.Exec(`
-                        INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-                        VALUES ($1, $2, $3, $4, $5, $6)
-                    `, userID, cageID, "device_action", fmt.Sprintf("Schedule rule triggered: Device %s %s", rule.DeviceID, rule.Action), false, time.Now())
-                    if err != nil {
-                        log.Printf("Error storing schedule rule notification: %v", err)
-                    }
-                }
-            }
-        }
-        rows.Close()
-        time.Sleep(1 * time.Minute)
     }
 }
 
-// SubscribeToMQTT subscribes to MQTT topics
-func SubscribeToMQTT(client mqtt.Client) {
-    topics := []string{
-        "hamster/+/+/sensor/+",
-        "hamster/+/+/device/+",
+func createNotification(db *sql.DB, wsHub *websocket.Hub, userID, cageID, notificationType, title, message string, timestamp time.Time, value ...float64) {
+    notificationID := uuid.New().String()
+    _, err := db.Exec(`
+        INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        notificationID, userID, cageID, notificationType, title, message, false, timestamp)
+    if err != nil {
+        log.Printf("Error creating notification: %v", err)
+        return
     }
-    for _, topic := range topics {
-        token := client.Subscribe(topic, 0, MQTTHandler)
-        if token.Wait() && token.Error() != nil {
-            log.Fatalf("Error subscribing to topic %s: %v", topic, token.Error())
-        }
-        log.Printf("Subscribed to topic: %s", topic)
+
+    var notificationValue float64
+    if len(value) > 0 {
+        notificationValue = value[0]
     }
-}
 
-// isCheckScheduleRulesRunning and setCheckScheduleRulesRunning manage the state of checkScheduleRules
-var checkScheduleRunning bool
-
-func isCheckScheduleRulesRunning() bool {
-    return checkScheduleRunning
-}
-
-func setCheckScheduleRulesRunning(running bool) {
-    checkScheduleRunning = running
+    wsHub.Broadcast <- websocket.Message{
+        UserID:  userID,
+        Type:    notificationType,
+        Title:   title,
+        Message: message,
+        CageID:  cageID,
+        Time:    timestamp.Unix(),
+        Value:   notificationValue,
+    }
 }

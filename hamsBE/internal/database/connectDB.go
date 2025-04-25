@@ -9,11 +9,11 @@ import (
 
     "hamstercare/internal/model"
     "hamstercare/internal/websocket"
-
     "github.com/golang-migrate/migrate/v4"
     "github.com/golang-migrate/migrate/v4/database/postgres"
     _ "github.com/golang-migrate/migrate/v4/source/file"
     _ "github.com/lib/pq"
+    "github.com/google/uuid"
 )
 
 var wsHub *websocket.Hub
@@ -45,7 +45,7 @@ func ConnectDB() (*sql.DB, error) {
     }
     dbname := os.Getenv("DB_NAME")
     if dbname == "" {
-        dbname = "hamstercare" // Updated to match test setup
+        dbname = "hamstercare"
         log.Println("DB_NAME not set, defaulting to hamstercare")
     }
 
@@ -114,7 +114,6 @@ func CloseDB(db *sql.DB) {
     }
 }
 
-// InsertSensorData inserts a new sensor record
 func InsertSensorData(db *sql.DB, sensor *model.Sensor) error {
     query := `
         INSERT INTO sensors (id, name, type, value, unit, cage_id)
@@ -128,7 +127,6 @@ func InsertSensorData(db *sql.DB, sensor *model.Sensor) error {
     return nil
 }
 
-// UpdateSensorData updates an existing sensor record
 func UpdateSensorData(db *sql.DB, sensor *model.Sensor) error {
     query := `
         UPDATE sensors
@@ -143,7 +141,6 @@ func UpdateSensorData(db *sql.DB, sensor *model.Sensor) error {
     return nil
 }
 
-// InsertDeviceData inserts a new device record
 func InsertDeviceData(db *sql.DB, device *model.Device) error {
     query := `
         INSERT INTO devices (id, name, type, status, last_status, cage_id)
@@ -157,7 +154,6 @@ func InsertDeviceData(db *sql.DB, device *model.Device) error {
     return nil
 }
 
-// UpdateDeviceData updates an existing device record
 func UpdateDeviceData(db *sql.DB, device *model.Device) error {
     query := `
         UPDATE devices
@@ -172,14 +168,12 @@ func UpdateDeviceData(db *sql.DB, device *model.Device) error {
     return nil
 }
 
-// UpdateWaterStatistic increments water_refill_sl for a cage
 func UpdateWaterStatistic(db *sql.DB, cageID string) error {
     currentDate := time.Now().Format("2006-01-02")
     var statisticID string
     var waterRefillSl int
     var userID string
 
-    // Fetch user_id for the notification
     err := db.QueryRow(`
         SELECT user_id FROM cages WHERE id = $1
     `, cageID).Scan(&userID)
@@ -187,17 +181,16 @@ func UpdateWaterStatistic(db *sql.DB, cageID string) error {
         return fmt.Errorf("error fetching user_id for cage %s: %v", cageID, err)
     }
 
-    // Check if a statistic exists for the cage today
     err = db.QueryRow(`
         SELECT id, water_refill_sl FROM statistic WHERE cage_id = $1 AND created_at::date = $2
     `, cageID, currentDate).Scan(&statisticID, &waterRefillSl)
 
     if err == sql.ErrNoRows {
-        // Insert new statistic
+        statisticID = uuid.New().String()
         _, err = db.Exec(`
-            INSERT INTO statistic (cage_id, water_refill_sl, created_at, updated_at)
-            VALUES ($1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `, cageID)
+            INSERT INTO statistic (id, cage_id, water_refill_sl, created_at, updated_at)
+            VALUES ($1, $2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `, statisticID, cageID)
         if err != nil {
             return fmt.Errorf("failed to insert water statistic: %v", err)
         }
@@ -205,7 +198,6 @@ func UpdateWaterStatistic(db *sql.DB, cageID string) error {
     } else if err != nil {
         return fmt.Errorf("error checking statistic: %v", err)
     } else {
-        // Update existing statistic
         _, err = db.Exec(`
             UPDATE statistic
             SET water_refill_sl = water_refill_sl + 1, updated_at = CURRENT_TIMESTAMP
@@ -217,24 +209,35 @@ func UpdateWaterStatistic(db *sql.DB, cageID string) error {
         waterRefillSl++
     }
 
-    // Check for high water usage
-    if waterRefillSl >= 10 {
-        notification := websocket.Notification{
-            Type:    "high_water_usage",
-            Message: fmt.Sprintf("High water usage detected: %d refills today", waterRefillSl),
-            CageID:  cageID,
-            Time:    time.Now().Format(time.RFC3339),
-        }
+    // Check settings for high water usage threshold
+    var threshold int
+    err = db.QueryRow(`
+        SELECT high_water_usage_threshold FROM settings WHERE cage_id = $1
+    `, cageID).Scan(&threshold)
+    if err != nil && err != sql.ErrNoRows {
+        log.Printf("Error fetching high water usage threshold for cage %s: %v", cageID, err)
+    }
+    if err == sql.ErrNoRows {
+        threshold = 10 // Default threshold
+    }
+
+    if waterRefillSl >= threshold {
+        title := "High Water Usage Alert"
+        message := fmt.Sprintf("High water usage detected: %d refills today", waterRefillSl)
         wsHub.Broadcast <- websocket.Message{
-            CageID: cageID,
-            Data:   notification,
+            UserID:  userID,
+            Type:    "high_water_usage",
+            Title:   title,
+            Message: message,
+            CageID:  cageID,
+            Time:    time.Now().Unix(),
+            Value:   float64(waterRefillSl),
         }
 
-        // Store the notification in the database
         _, err = db.Exec(`
-            INSERT INTO notifications (user_id, cage_id, type, message, is_read, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
-        `, userID, cageID, "high_water_usage", fmt.Sprintf("High water usage detected: %d refills today", waterRefillSl), false, time.Now())
+            INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, uuid.New().String(), userID, cageID, "high_water_usage", title, message, false, time.Now())
         if err != nil {
             log.Printf("Error storing high water usage notification: %v", err)
         }

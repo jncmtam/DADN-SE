@@ -49,6 +49,7 @@ require (
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-contrib/cors v1.7.4

@@ -1,3 +1,4 @@
+CREATE INDEX idx_cages_user_id ON cages(user_id);
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sensor_type') THEN
@@ -16,5 +17,4 @@ CREATE TABLE sensors (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Added for tracking updates
     FOREIGN KEY (cage_id) REFERENCES cages(id) ON DELETE CASCADE
 );
-
 CREATE INDEX idx_sensors_cage_id ON sensors(cage_id);

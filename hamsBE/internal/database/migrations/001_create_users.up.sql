@@ -25,7 +25,7 @@ CREATE TABLE refresh_tokens (
 );
 
 -- Create table otp_request
-CREATE TABLE otp_request (
+CREATE TABLE otp_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     otp_code VARCHAR(6) NOT NULL,
