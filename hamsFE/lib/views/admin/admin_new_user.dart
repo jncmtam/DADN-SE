@@ -76,7 +76,7 @@ class _CreateUser extends State<AddUser> {
               child: Container(
                 padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
                 decoration: BoxDecoration(
-                  color: kBase0,
+                  color: lappBackground,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20))
                 ),
                 child: SingleChildScrollView(

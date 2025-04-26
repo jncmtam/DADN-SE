@@ -12,6 +12,7 @@ class AdminProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: lappBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 60,

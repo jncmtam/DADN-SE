@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:hamsFE/controllers/session.dart';
 import 'package:hamsFE/models/cage.dart';
@@ -13,7 +14,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:hamsFE/models/cageinit.dart';
-
+import 'package:hamsFE/models/chartdata.dart';
 import '../models/user.dart';
 import '../views/constants.dart';
 
@@ -727,5 +728,19 @@ class APIs {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
       throw Exception('Failed to load cages: $error');
     }
+  }
+  Future<List<ChartData>> getChartData() async {
+    final listData = [
+      {"day": "2025-04-21", "value": 35}, // Monday
+      {"day": "2025-04-22", "value": 28}, // Tuesday
+      {"day": "2025-04-23", "value": 34}, // Wednesday
+      {"day": "2025-04-24", "value": 32}, // Thursday
+      {"day": "2025-04-25", "value": 40}, // Friday
+      {"day": "2025-04-26", "value": 25}, // Saturday
+      {"day": "2025-04-27", "value": 30}, // Sunday
+    ]
+        .map((data) => ChartData.fromJson(data))
+        .toList();
+    return listData;
   }
 }
