@@ -42,9 +42,23 @@ func main() {
     go wsHub.Run()
 
     // Initialize MQTT client
-    mqttClient := mqtt.ConnectMQTT(db, wsHub)
+    mqttClient, err := mqtt.StartMQTTClientSub(
+        "tcp://10.28.129.171:1883",
+        "hamster/#",
+        "user1",
+        "cage1",
+        "device",
+        db,
+        wsHub,
+    )
+    if err != nil {
+        log.Fatalf("Failed to start MQTT subscription: %v", err)
+    }
     defer mqttClient.Disconnect(250)
 
+    // Existing ConnectMQTT for general subscriptions
+    mainMqttClient := mqtt.ConnectMQTT(db, wsHub)
+    defer mainMqttClient.Disconnect(250)
     // Set up Gin router
     r := gin.Default()
 

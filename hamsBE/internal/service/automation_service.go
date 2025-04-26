@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"hamstercare/internal/model"
@@ -11,34 +12,35 @@ import (
 type AutomationService struct {
 	AutomationRepo *repository.AutomationRepository
 }
+type AutomationRepository struct {
+	db *sql.DB
+}
 
 func NewAutomationService(AutomationRepo *repository.AutomationRepository) *AutomationService {
 	return &AutomationService{AutomationRepo: AutomationRepo}
 }
 
-
 func (s *AutomationService) AddAutomationRule(ctx context.Context, rule *model.AutomationRule, cageService *CageService) (*model.AutomationRule, error) {
 	if rule == nil {
 		return nil, errors.New("automation rule is required")
 	}
-	if rule.SensorID == "" || rule.DeviceID == "" || rule.Condition == "" ||
+	if rule.SensorID == "" || rule.DeviceID == "" || rule.CageID == "" || rule.Condition == "" ||
 		rule.Threshold == 0 || rule.Action == "" {
 		return nil, errors.New("all fields are required")
 	}
 
-	// Kiem tra sensorID cùng cage với deviceID
+	// Verify sensor and device are in the same cage
 	isSame, err := cageService.CageRepo.IsSameCage(ctx, rule.DeviceID, rule.SensorID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error checking cage: %w", err)
 	}
-
 	if !isSame {
 		return nil, fmt.Errorf("%w: sensor %s and device %s", ErrDifferentCage, rule.SensorID, rule.DeviceID)
 	}
-	
+
 	rule, err = s.AutomationRepo.CreateAutomationRule(ctx, rule)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create automation rule: %w", err)
 	}
 
 	return rule, nil
@@ -51,9 +53,9 @@ func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID str
 
 	// Kiểm tra cageID hợp lệ
 	if err := IsValidUUID(ruleID); err != nil {
-		return err 
+		return err
 	}
-	
+
 	exists, err := s.AutomationRepo.RuleExists(ctx, ruleID)
 	if err != nil {
 		return fmt.Errorf("error checking automation rule existence: %w", err)
@@ -61,7 +63,7 @@ func (s *AutomationService) RemoveAutomationRule(ctx context.Context, ruleID str
 	if !exists {
 		return fmt.Errorf("%w: automation rule with ID %s does not exist", ErrRuleNotFound, ruleID)
 	}
-	
+
 	return s.AutomationRepo.DeleteAutomationRule(ctx, ruleID)
 }
 
@@ -81,4 +83,3 @@ func (s *AutomationService) GetRulesByDeviceID(ctx context.Context, deviceID str
 
 	return rules, nil
 }
-

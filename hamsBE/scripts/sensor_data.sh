@@ -1,21 +1,24 @@
 #!/bin/bash
 
-# Configuration for MQTT Broker
+# MQTT cấu hình
 BROKER=${MQTT_BROKER:-"localhost"}
 PORT=${MQTT_PORT:-1883}
-
-# User and Cage (matching sample data)
 USERNAME=${USERNAME:-"user1"}
 CAGENAME=${CAGENAME:-"cage1"}
 
-# Function to get Unix timestamp (int64)
+# Hàm lấy timestamp
 get_timestamp() {
   date "+%s"
 }
 
-# Function to publish IoT device data (JSON)
+# Hàm tạo số ngẫu nhiên float (đơn giản)
+random_float() {
+  awk -v min=$1 -v max=$2 'BEGIN {srand(); print min + rand() * (max - min)}'
+}
+
+# Hàm gửi dữ liệu
 publish_iot_data() {
-  local TYPE=$1 # sensor or device
+  local TYPE=$1
   local ID=$2
   local DATANAME=$3
   local VALUE=$4
@@ -40,25 +43,23 @@ EOF
   mosquitto_pub -h "$BROKER" -p "$PORT" -t "$TOPIC" -m "$PAYLOAD"
 }
 
-# 🧪 Test cases — aligned with IoT device format and sample data
-echo "▶️ Starting test data push..."
+# 🔁 Vòng lặp gửi liên tục mỗi 5 giây
+while true; do
+  TEMP=$(random_float 28.0 40.0)
+  HUM=$(random_float 50.0 90.0)
+  LIGHT=$(random_float 80.0 150.0)
+  DIST=$(random_float 5.0 25.0)
 
-# Sensors
-publish_iot_data "sensor" 1 "temperature" 35.0 # Triggers high temperature warning
-sleep 2
-publish_iot_data "sensor" 2 "humidity" 85.0   # Triggers high humidity warning
-sleep 2
-publish_iot_data "sensor" 3 "light" 100.0     # Normal value
-sleep 2
-publish_iot_data "sensor" 4 "distance" 19.0   # Triggers low water level warning
-sleep 2
+  # Gửi sensor
+  publish_iot_data "sensor" 1 "temperature" "$TEMP"
+  sleep 2
+  publish_iot_data "sensor" 2 "humidity" "$HUM"
+  sleep 2
+  publish_iot_data "sensor" 3 "light" "$LIGHT"
+  sleep 2
+  publish_iot_data "sensor" 4 "distance" "$DIST"
+  sleep 2
 
-# Devices
-publish_iot_data "device" 5 "fan" "off"  # Represents "on" (adjust value based on IoT device)
-sleep 2
-publish_iot_data "device" 6 "led" "off" # Represents "on"
-sleep 2
-publish_iot_data "devvice" 7  "pump" "off" 
-sleep 2
-
-echo "✅ All test messages published!"
+  echo "⏱️ Đợi 5 giây trước vòng tiếp theo..."
+  sleep 5
+done

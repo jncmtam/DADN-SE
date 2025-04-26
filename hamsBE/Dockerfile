@@ -1,46 +1,30 @@
-# Stage 1: Build ứng dụng Golang
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
+# Stage 1: Build the Go application
+FROM golang:1.23-alpine AS builder
 
-# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Copy go.mod và go.sum để tải dependencies
+# Copy go.mod and go.sum to leverage Docker cache
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy toàn bộ mã nguồn
+# Copy the source code
 COPY . .
 
-# Build ứng dụng, tự động nhận diện kiến trúc mục tiêu
-ARG TARGETPLATFORM
-RUN GOARCH=$(echo ${TARGETPLATFORM} | cut -d '/' -f2) \
-    CGO_ENABLED=0 GOOS=linux go build -o /app/main ./main.go
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o hamsBE ./main.go
 
-# Stage 2: Tạo image nhỏ gọn để chạy
-FROM --platform=$TARGETPLATFORM alpine:latest
+# Stage 2: Create a minimal runtime image
+FROM alpine:latest
 
-# Cài đặt các công cụ cần thiết (psql cho init.sh)
-RUN apk add --no-cache postgresql-client bash
-
-# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# Copy file binary từ stage builder
-COPY --from=builder /app/main .
-RUN chmod +x /app/main
+# Copy the binary from the builder stage
+COPY --from=builder /app/hamsBE .
+# Copy public assets (avatars)
+COPY public ./public
 
-# Copy các file cần thiết để chạy migration và seed
-COPY internal/database/migrations /app/internal/database/migrations
-COPY internal/database/queries /app/internal/database/queries
-COPY .env /app/.env
+# Expose port for API and WebSocket (adjust if different)
+EXPOSE 8080
 
-# Command để chạy ứng dụng
-CMD ["/app/main"]
-
-
-# Build 
-# docker buildx build --platform linux/amd64,linux/arm64 -t hamster:latest .
-# docker buildx build --platform linux/amd64 -t hamster:latest .
-# docker buildx build --platform linux/arm64 -t hamster:latest .
-
-# docker run -d --name hamsbe -p 8080:8080 hamster
+# Command to run the application
+CMD ["./hamsBE"]

@@ -5,7 +5,6 @@ import 'package:hamsFE/views/temp.dart';
 import 'package:hamsFE/views/user/user_home.dart';
 import 'package:hamsFE/views/user/user_profile.dart';
 import '../models/user.dart';
-import 'admin/admin_profile.dart';
 import 'constants.dart';
 
 class UserApp extends StatefulWidget {

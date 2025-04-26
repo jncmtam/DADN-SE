@@ -1,12 +1,30 @@
+// websocket/websocket.go
 package websocket
 
 import (
     "encoding/json"
     "log"
     "time"
-
     "github.com/gorilla/websocket"
 )
+
+type Client struct {
+    UserID string
+    CageID string
+    Type   string // "sensor" or "notification"
+    Conn   *websocket.Conn
+    Send   chan []byte
+}
+
+type Message struct {
+    UserID  string  `json:"user_id"`
+    CageID  string  `json:"cage_id"`
+    Type    string  `json:"type"`
+    Title   string  `json:"title"`
+    Message string  `json:"message"`
+    Time    int64   `json:"time"`
+    Value   float64 `json:"value"`
+}
 
 type Hub struct {
     Clients    map[*Client]bool
@@ -15,41 +33,12 @@ type Hub struct {
     Unregister chan *Client
 }
 
-type Client struct {
-    UserID string
-    CageID string
-    Conn   *websocket.Conn
-    Send   chan []byte
-}
-
-type Message struct {
-    UserID  string  `json:"user_id"`
-    Type    string  `json:"type"`
-    Title   string  `json:"title"`
-    Message string  `json:"message"` // Fixed typo
-    CageID  string  `json:"cage_id"`
-    Time    int64   `json:"time"`
-    Value   float64 `json:"value"`
-}
-
-type Notification struct {
-    ID        string    `json:"id"`
-    UserID    string    `json:"user_id"`
-    Type      string    `json:"type"`
-    Title     string    `json:"title"`
-    Message   string    `json:"message"`
-    CageID    string    `json:"cage_id"`
-    Time      int64     `json:"time"`
-    IsRead    bool      `json:"is_read"`
-    CreatedAt time.Time `json:"created_at"`
-}
-
 func NewHub() *Hub {
     return &Hub{
-        Broadcast:  make(chan Message, 100), // Buffered channel
+        Clients:    make(map[*Client]bool),
+        Broadcast:  make(chan Message),
         Register:   make(chan *Client),
         Unregister: make(chan *Client),
-        Clients:    make(map[*Client]bool),
     }
 }
 
@@ -58,27 +47,25 @@ func (h *Hub) Run() {
         select {
         case client := <-h.Register:
             h.Clients[client] = true
-            log.Printf("Client registered for user %s, cage %s", client.UserID, client.CageID)
+            log.Printf("Client registered: UserID=%s, CageID=%s, Type=%s", client.UserID, client.CageID, client.Type)
         case client := <-h.Unregister:
             if _, ok := h.Clients[client]; ok {
                 close(client.Send)
                 delete(h.Clients, client)
-                log.Printf("Client unregistered for user %s, cage %s", client.UserID, client.CageID)
+                log.Printf("Client unregistered: UserID=%s, CageID=%s, Type=%s", client.UserID, client.CageID, client.Type)
             }
         case message := <-h.Broadcast:
             for client := range h.Clients {
-                // Broadcast to clients with matching CageID or no CageID (for global notifications)
-                if client.CageID == message.CageID || client.CageID == "" {
-                    msg := marshalMessage(message)
-                    if msg == nil {
-                        log.Printf("Skipping nil message for client %s", client.UserID)
-                        continue
-                    }
-                    select {
-                    case client.Send <- msg:
-                    default:
-                        close(client.Send)
-                        delete(h.Clients, client)
+                if client.UserID == message.UserID && (client.CageID == message.CageID || client.CageID == "") {
+                    if (client.Type == "notification" && message.Type != "sensor_data") ||
+                        (client.Type == "sensor" && message.Type == "sensor_data") {
+                        data, _ := json.Marshal(message)
+                        select {
+                        case client.Send <- data:
+                        default:
+                            close(client.Send)
+                            delete(h.Clients, client)
+                        }
                     }
                 }
             }
@@ -86,29 +73,26 @@ func (h *Hub) Run() {
     }
 }
 
-func marshalMessage(data interface{}) []byte {
-    msg, err := json.Marshal(data)
-    if err != nil {
-        log.Printf("Error marshaling WebSocket message: %v", err)
-        return nil
-    }
-    return msg
-}
-
 func (c *Client) WritePump() {
+    ticker := time.NewTicker(10 * time.Second)
     defer func() {
+        ticker.Stop()
         c.Conn.Close()
     }()
     for {
         select {
         case message, ok := <-c.Send:
+            c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
             if !ok {
                 c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
                 return
             }
-            c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
             if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
-                log.Printf("Error writing WebSocket message: %v", err)
+                return
+            }
+        case <-ticker.C:
+            c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+            if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
                 return
             }
         }
@@ -123,11 +107,7 @@ func (c *Client) ReadPump(hub *Hub) {
     for {
         _, _, err := c.Conn.ReadMessage()
         if err != nil {
-            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Printf("WebSocket error: %v", err)
-            }
             break
         }
-        // Handle incoming messages if needed
     }
 }

@@ -1,41 +1,76 @@
-version: '3.8'  # Không bắt buộc nhưng giúp rõ ràng
 
 services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: hamster
-      POSTGRES_PASSWORD: hamster
-      POSTGRES_DB: hamster
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "hamster"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: hamsbe_app
     depends_on:
-      db:
-        condition: service_healthy
+      - db
+      - mqtt
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USER: hamster
-      DB_PASSWORD: hamster
-      DB_NAME: hamster
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=minhtam
+      - DB_PASSWORD=hamster
+      - DB_NAME=hamster
+      - JWT_SECRET_KEY=maimailafananhj97
+      - SENDGRID_API_KEY=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
+      - EMAIL=tam.chu2213009cs@hcmut.edu.vn
+      - MQTT_BROKER=tcp://mqtt:1883
+      - MQTT_CLIENT=hamsBE-anonymous
+      - MQTT_USERNAME=user@123
+      - MQTT_PASSWORD=user@123
     ports:
       - "8080:8080"
-    restart: unless-stopped
     volumes:
-      - .:/app  # Chỉ dùng khi dev, bỏ trong production
+      - ./public:/app/public # Mount public directory for avatars
+    networks:
+      - hamsbe_network
+    restart: unless-stopped
+
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001" # WebSocket port
+    volumes:
+      - ./internal/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./internal/mqtt/password_file:/mosquitto/config/password_file
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - hamsbe_network
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=minhtam
+      - POSTGRES_PASSWORD=hamster
+      - POSTGRES_DB=hamster
+    volumes:
+      - ./internal/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - hamsbe_network
+    restart: unless-stopped
 
 volumes:
+  mosquitto_data:
+  mosquitto_log:
   postgres_data:
-    driver: local
+
+networks:
+  hamsbe_network:
+    driver: bridge
+
+# docker-compose up --build
+# docker logs hamsbe_app
+# docker logs mosquitto
+# docker logs postgres
