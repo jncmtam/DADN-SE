@@ -1,245 +1,636 @@
-# REST API Design
+# HamsterCare API Specification
 
-## 1. Xác thực & Người dùng
-- `POST : admin/login`
-- `POST : admin/logout`
+## Base Information
+- **Base URL**: `http://localhost:8080/api`
+- **Authentication**: Use `Authorization: Bearer <JWT_TOKEN>` for protected routes.
+- **Content-Type**: `application/json` (except for file uploads).
+- **Environment Variables**:
+  - `JWT_SECRET_KEY`: Used for JWT signing/verification.
+  - `SENDGRID_API_KEY`: For sending emails.
+  - `EMAIL`: Sender email address.
 
-- ` Get : admin/`
-- ` Get, Delete : admin/users`
-- ` Get, Delete : admin/users/:user_id`
-- `Get : admin/users/cages & admin/user/cages/:cage_id`
+## Authentication Routes (`/api/auth`)
 
-- `Post : api/login`
-- `Post : api/logout`
-- `Post : api/register`
-- `Post : api/changePW` -> token
-- `Post : api/forgetPW` -> OTP email
+### POST /auth/login
+Authenticates a user and returns tokens.
 
-## 2. Quản lý Chuồng (Cages)
-- Inactive / Active  -> Giữ nguyên trạng thái trước lúc tắt của device & sensor
-
-### **User**
-- `GET /api/cages` → Xem danh sách chuồng 
-- `Bearer Token`
-
-  **Response:**  
-  ```json
-  [
-    {
-      "id": 1,
-      "name": "Chuồng A"
-    },
-    {
-      "id": 2,
-      "name": "Chuồng B"
-    }
-  ]
-  ```
-
-- `GET /api/cages/:cage_id` → Xem chi tiết chuồng, bao gồm cảm biến và thiết bị  
-  **Response:**  
+- **Request**:
   ```json
   {
-    "id": 1,
-    "name": "Chuồng A",
-    "sensors": [
+    "email": "string",
+    "password": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "access_token": "string",
+      "refresh_token": "string",
+      "user": {...}
+    }
+    ```
+
+### POST /auth/logout
+Logs out a user.
+
+- **Request**: None
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Successfully logged out",
+      "timestamp": "string"
+    }
+    ```
+
+### POST /auth/change-password
+Changes the user's password.
+
+- **Request**:
+  ```json
+  {
+    "old_password": "string",
+    "new_password": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Password changed successfully"
+    }
+    ```
+
+### POST /auth/forgot-password
+Sends an OTP for password reset.
+
+- **Request**:
+  ```json
+  {
+    "email": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "OTP sent to your email",
+      "expires_at": "string"
+    }
+    ```
+    or
+    ```json
+    {
+      "message": "If the email exists, an OTP has been sent"
+    }
+    ```
+
+### POST /auth/reset-password
+Resets password using OTP.
+
+- **Request**:
+  ```json
+  {
+    "email": "string",
+    "otp_code": "string",
+    "new_password": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Password reset successfully"
+    }
+    ```
+
+### POST /auth/refresh
+Refreshes access token.
+
+- **Request**:
+  ```json
+  {
+    "refresh_token": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "access_token": "string",
+      "refresh_token": "string"
+    }
+    ```
+
+## OTP Routes (`/api`)
+
+### POST /otp/create
+Creates an OTP.
+
+- **Request**:
+  ```json
+  {
+    "user_id": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "otp_code": "string",
+      "expires_at": "string"
+    }
+    ```
+
+### POST /otp/verify
+Verifies an OTP.
+
+- **Request**:
+  ```json
+  {
+    "user_id": "string",
+    "otp_code": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Email verified successfully"
+    }
+    ```
+
+## Profile Routes (`/api/profile`)
+
+### GET /profile
+Retrieves user profile.
+
+- **Request**: None
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Profile retrieved successfully",
+      "user": {...}
+    }
+    ```
+
+### POST /profile/avatar
+Updates user avatar.
+
+- **Request**: `multipart/form-data`, `avatar: file`
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Avatar updated successfully",
+      "user": {...}
+    }
+    ```
+
+### GET /profile/avatar
+Retrieves user avatar image.
+
+- **Responses**:
+  - **200**: JPEG image
+
+### POST /profile/username
+Updates username.
+
+- **Request**:
+  ```json
+  {
+    "username": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Username updated successfully",
+      "user": {...}
+    }
+    ```
+
+## User Routes (`/api/users`)
+
+### GET /users/:id
+Gets user by ID.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "id": "string",
+      ...
+    }
+    ```
+
+### GET /users/cages
+Gets user cages.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    [
       {
-        "id": 1,
-        "type": "temperature",
-        "value": 28.5,
-        "unit": "°C"
-      },
-      {
-        "id": 2,
-        "type": "humidity",
-        "value": 70,
-        "unit": "%"
-      }
-    ],
-    "devices": [
-      {
-        "id": 1,
-        "name": "Quạt",
-        "status": "on"
-      },
-      {
-        "id": 2,
-        "name": "Đèn LED",
-        "status": "off"
+        "id": "string",
+        ...
       }
     ]
-  }
-  ```
-## Admin
-- `POST /api/cages` → Tạo chuồng mới  
-  **Request:**  
+    ```
+
+### GET /users/cages/general-info
+Counts active devices.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "active_devices": 0
+    }
+    ```
+
+### GET /users/cages/:cageID/sensors
+Gets cage sensors.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "sensors": [
+        {...}
+      ]
+    }
+    ```
+
+### GET /users/cages/:cageID/sensors-data
+Gets latest sensor data.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "<sensor_type>": {...}
+    }
+    ```
+
+### GET /users/cages/:cageID/statistics
+Gets cage statistics.
+
+- **Query Parameters**: `range`, `start_date`, `end_date`
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "statistics": [
+        {...}
+      ],
+      "summary": {...}
+    }
+    ```
+
+### PUT /users/cages/:cageID/settings
+Updates cage settings.
+
+- **Request**:
   ```json
   {
-    "name": "Chuồng B"
+    "high_water_usage_threshold": 10
   }
   ```
-  **Response:**  
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Settings updated successfully"
+    }
+    ```
+
+### GET /users/cages/:cageID/sensors-data/ws
+WebSocket for sensor data.
+
+- **Messages**:
   ```json
   {
-    "id": 2,
-    "name": "Chuồng B"
+    "user_id": "string",
+    "cage_id": "string",
+    "type": "string",
+    "title": "string",
+    "message": "string",
+    "time": 1697059200,
+    "value": 0.0
   }
   ```
+- **Responses**:
+  - **101**: WebSocket established
 
-## 3. Quản lý Cảm biến (Sensors)
+### GET /users/cages/:cageID/notifications/ws
+WebSocket for notifications.
 
-### **User**
-- `MQTT topic` : username/feeds/sensor# → Lấy dữ liệu từ cảm biến trực tiếp qua MQTT và chỉ lưu lại vào database những sự kiện vi phạm Automation Rule  
-  **Response:**  
+- **Messages**:
   ```json
   {
-    "sensor_id": 1,
-    "type": "temperature",
-    "value": 28.5,
-    "unit": "°C",
-    "timestamp": "2024-03-09T12:00:00Z"
+    "user_id": "string",
+    "cage_id": "string",
+    "type": "notification",
+    "title": "string",
+    "message": "string",
+    "time": 1697059200,
+    "value": 0.0
   }
   ```
+- **Responses**:
+  - **101**: WebSocket established
 
-## 4. Quản lý Thiết bị (Devices)
+### GET /users/cages/:cageID
+Gets cage details.
 
-### **User**
-- `PUT /api/devices/:device_id` → Cập nhật trạng thái thiết bị (bật/tắt/auto)  
-  **Request:**  
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "id": "string",
+      ...
+    }
+    ```
+
+### GET /users/devices/:deviceID
+Gets device details.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "id": "string",
+      ...
+    }
+    ```
+
+### POST /users/devices/:deviceID/automations
+Creates automation rule.
+
+- **Request**:
   ```json
   {
-    "status": "on" // off , auto
+    "sensor_id": "string",
+    "condition": "string",
+    "threshold": 0.0,
+    "action": "string"
   }
   ```
-  **Response:**  
+- **Responses**:
+  - **201**: 
+    ```json
+    {
+      "message": "Automation rule created successfully",
+      "id": "string"
+    }
+    ```
+
+### DELETE /users/schedules/:ruleID
+Deletes schedule rule.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Schedule rule deleted successfully"
+    }
+    ```
+
+### POST /users/devices/:deviceID/control
+Controls a device.
+
+- **Request**:
   ```json
   {
-    "id": 1,
-    "name": "Quạt",
-    "status": "on"
+    "action": "string"
   }
   ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Device action executed successfully"
+    }
+    ```
 
-## 5. Quy tắc Tự động (Automation Rules)
+### GET /users/notifications
+Gets user notifications.
 
-### **User**
-- `POST /api/automation` → Tạo quy tắc tự động mới  
-  **Request:**  
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "notifications": [
+        {...}
+      ]
+    }
+    ```
+
+### PATCH /users/notifications/:notiID/read
+Marks notification as read.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Notification marked as read"
+    }
+    ```
+
+## Admin Routes (`/api/admin`)
+
+### GET /admin/users/:id
+Gets user by ID.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "id": "string",
+      ...
+    }
+    ```
+
+### GET /admin/users
+Gets all users.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Users retrieved successfully",
+      "users": [
+        {...}
+      ]
+    }
+    ```
+
+### POST /admin/auth/register
+Registers a new user.
+
+- **Request**:
   ```json
   {
-    "sensor_id": 1,
-    "device_id": 2,
-    "condition": ">",
-    "threshold": 30,
-    "unit" : "C",
-    "action": "turn_on"
+    "username": "string",
+    "email": "string",
+    "password": "string",
+    "role": "string"
   }
   ```
-  **Response:**  
+- **Responses**:
+  - **201**: 
+    ```json
+    {
+      "message": "User registered successfully",
+      "user_id": "string"
+    }
+    ```
+
+### DELETE /admin/users/:user_id
+Deletes a user.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "User deleted successfully",
+      "user_id": "string",
+      "timestamp": "string"
+    }
+    ```
+
+### POST /admin/users/:id/cages
+Creates a cage.
+
+- **Request**:
   ```json
   {
-    "automation_id" : "xxxx-000012012-123123", //hash
-    "sensor_id": 1,
-    "device_id": 2,
-    "condition": ">",
-    "threshold": 30,
-    "unit" : "C",
-    "action": "turn_on"
+    "name_cage": "string"
   }
   ```
-- `Get api/automation/automation_id` -> Display data onto dashboard
+- **Responses**:
+  - **201**: 
+    ```json
+    {
+      "message": "Cage created successfully",
+      "id": "string",
+      "name": "string"
+    }
+    ```
 
-## 6. Thông báo (Notifications)
-- Alert : 
-  - Inactive/active - cage - device - sensor
+### POST /admin/devices
+Creates a device.
 
-### **User**
-- `POST /api/notifications/register` → Đăng ký token FCM của thiết bị  
-  **Request:**  
+- **Request**:
   ```json
   {
-    "device_id": "user-device-123",
-    "fcm_token": "fcm-token-string"
+    "name": "string",
+    "type": "string",
+    "cageID": "string"
   }
   ```
-  **Response:**  
+- **Responses**:
+  - **201**: 
+    ```json
+    {
+      "message": "Device created successfully",
+      "id": "string",
+      "name": "string"
+    }
+    ```
+
+### PUT /admin/devices/:deviceID/cage
+Assigns device to cage.
+
+- **Request**:
   ```json
   {
-    "message": "Device registered successfully"
+    "cageID": "string"
   }
   ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Device assigned to cage successfully",
+      "id": "string",
+      "cageID": "string"
+    }
+    ```
 
-- `POST /api/notifications/send` → Gửi thông báo đến thiết bị qua FCM 
+### GET /admin/devices
+Gets assignable devices.
 
-  - Control sao cho noti gửi liên tục sau ${time} 
-  - Quá nhiệt -> Thông báo sau ~ 15 phút
-  - Nếu hết water/food -> Luôn mở van -> Thông báo sau ~ 2 tiếng
+- **Responses**:
+  - **200**: 
+    ```json
+    [
+      {...}
+    ]
+    ```
 
-  **Request:**  
-```json
-[ 
-  {
-    "device_id": "user-device-123",
-    "title": "Hết đồ ăn",
-    "message": "Thùng đựng hết đồ ăn",
-    "timestamp" : "9/3/2025 11PM"
-  },
-  {
-    "device_id": "user-device-456",
-    "title": "Quá nhiệt",
-    "message": "Nhiệt độ vượt quá 35 độ C",
-    "timestamp" : "9/3/2025 11PM"
-  }
-  ]
-```
-  **Response:**  
+### GET /admin/sensors
+Gets assignable sensors.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    [
+      {...}
+    ]
+    ```
+
+### POST /admin/sensors
+Creates a sensor.
+
+- **Request**:
   ```json
   {
-    "message": "Notification sent successfully"
+    "name": "string",
+    "type": "string",
+    "cageID": "string"
   }
   ```
+- **Responses**:
+  - **201**: 
+    ```json
+    {
+      "message": "Sensor created successfully",
+      "id": "string",
+      "name": "string"
+    }
+    ```
 
-### 7. Thống kê
- - `Get api/:cage_id/stat/{type=food?water}?startDate={}&endDate{}` 
- #### res 
- ```json
- {
-   "food_refill_SL" : int,
-   "water_refill_SL" : int,
- }
- ```
+### PUT /admin/sensors/:sensorID/cage
+Assigns sensor to cage.
 
-while measureing -> hamster consume water / food 
--> show cho thầy
+- **Request**:
+  ```json
+  {
+    "cageID": "string"
+  }
+  ```
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Sensor assigned to cage successfully",
+      "id": "string",
+      "cageID": "string"
+    }
+    ```
 
+### DELETE /admin/cages/:cageID
+Deletes a cage.
 
-
-# Stat Method
-refill_sum = 50 mil * refill_time -> dashboard display
-refill_cal_food() , refill_cal_water()
-
-  RefillDB (day) 
-  - cage_id 
-  - food_refill_SL : int -> 0
-  - water_refill_SL : int -> 0
-  - timestamp : 23/2/2025 
-
-
-  # Note : 
-- Admin đăng kí tk user
-- Forget password -> OTP GMail
-- Login -> Change password 
-
-
-
-- Admin 
-  - User
-    - Cage
-      - Device & Sensor
-
-- cage 1
-   - energy -> tổng tgian hoạt động của từng device *  mức tiêu thụ điện
-   - water stat
-   - food stat
-
-- cage 2
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Cage deleted successfully"
+    }
+    ```
