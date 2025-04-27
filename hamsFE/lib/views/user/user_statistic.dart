@@ -88,6 +88,7 @@ class _ChartExampleState extends State<ChartExample> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: lappBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: lAppBarHeight,

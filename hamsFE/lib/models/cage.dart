@@ -21,7 +21,7 @@ class UCage {
       id: json['id'] ?? 'N/A',
       name: json['name'] ?? 'N/A',
       deviceCount: json['num_device'] ?? -1,
-      isEnabled: json['status'] == 'on' ? true : false,
+      isEnabled: json['status'] == 'active' ? true : false,
     );
   }
 }
@@ -49,7 +49,7 @@ class UDetailedCage {
       id: json['id'] ?? 'N/A',
       name: json['name'] ?? 'N/A',
       // deviceCount: json['num_device'] ?? -1,
-      isEnabled: json['status'] == 'on' ? true : false,
+      isEnabled: json['status'] == 'active' ? true : false,
       devices: (json['devices'] as List)
           .map((device) => UDevice.fromJson(device))
           .toList(),

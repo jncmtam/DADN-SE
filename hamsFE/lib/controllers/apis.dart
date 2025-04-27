@@ -290,7 +290,7 @@ class APIs {
     try {
       final token = SessionManager().getJwt();
       final url = Uri.parse(
-        'ws://10.28.129.183:8080/api/user/cages/$cageId/sensors-data?token=$token',
+        '$websocketUrl/user/cages/$cageId/sensors-data?token=$token',
       );
       return WebSocketChannel.connect(url);
     } catch (e) {
@@ -386,7 +386,7 @@ class APIs {
       body: jsonEncode(rule.toJson()),
     );
 
-    if (response.statusCode == 201) {
+    if (response.statusCode == 200) {
       return;
     } else {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';

@@ -72,8 +72,9 @@ class _ViewUserState extends State<AdminViewUser> {
         ),
       ),
       body: Container(
+        height: MediaQuery.of(context).size.height,
         decoration: BoxDecoration(
-          color: kBase0,
+          color: lappBackground,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
@@ -82,16 +83,6 @@ class _ViewUserState extends State<AdminViewUser> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Avatar
-                Center(
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundImage: NetworkImage('https://example.com/default-avatar.png',
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16),
-                // Name
                 Text(
                   participant.name,
                   style: TextStyle(
@@ -145,15 +136,18 @@ class _ViewUserState extends State<AdminViewUser> {
                                 APIs.deleteUser(participant.id).then((value) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('User deleted successfully'),
+                                      content:
+                                          Text('User deleted successfully'),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
-                                  Navigator.pop(context, true); // Return to previous screen with reload flag
+                                  Navigator.pop(context,
+                                      true); // Return to previous screen with reload flag
                                 }).catchError((error) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Failed to delete user: $error'),
+                                      content:
+                                          Text('Failed to delete user: $error'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -164,7 +158,8 @@ class _ViewUserState extends State<AdminViewUser> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 30, vertical: 10),
                               ),
                               child: Text(
                                 'Yes',
@@ -183,7 +178,8 @@ class _ViewUserState extends State<AdminViewUser> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
                               ),
                               child: Text(
                                 'Cancel',
@@ -231,8 +227,8 @@ class _ViewUserState extends State<AdminViewUser> {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                AdminCage(cageInit: null, userId: participant.id),
+                            builder: (context) => AdminCage(
+                                cageInit: null, userId: participant.id),
                           ),
                         );
                         if (result == true) {
@@ -240,7 +236,8 @@ class _ViewUserState extends State<AdminViewUser> {
                           _loadcages();
                         }
                       },
-                      icon: Icon(Icons.add_circle, color: secondaryButtonContent),
+                      icon:
+                          Icon(Icons.add_circle, color: secondaryButtonContent),
                       iconSize: 35,
                       constraints: BoxConstraints(minWidth: 40, minHeight: 40),
                     ),
@@ -283,46 +280,13 @@ class _ViewUserState extends State<AdminViewUser> {
                                         color: lSectionTitle,
                                       ),
                                     ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Switch(
-                                          value: cages[index].status.toLowerCase() == 'on',
-                                          onChanged: (value) async {
-                                            setState(() {
-                                              // Update the status of the specific cage
-                                              cages[index].status =
-                                                  value ? 'on' : 'off';
-                                            });
-                                            // Optionally, make an API call to update the status on the server
-                                            try {
-                                              // await APIs.updateCageStatus(cages[index].id, value ? 'on' : 'off');
-                                            } catch (e) {
-                                              // Revert the change if the API call fails
-                                              setState(() {
-                                                cages[index].status =
-                                                    value ? 'off' : 'on';
-                                              });
-                                            }
-                                          },
-                                          activeColor: Colors.white,
-                                          activeTrackColor:
-                                              Color(0xFF2C5D51), // dark green track
-                                          inactiveThumbColor: Colors.white,
-                                          inactiveTrackColor: Colors.grey.shade300,
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          splashRadius: 0.0,
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               );
                             },
                           ),
 
-                SizedBox(height: 30),
+                // SizedBox(height: 30),
               ],
             ),
           ),

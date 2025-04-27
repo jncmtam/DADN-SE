@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 
-const apiUrl = 'http://10.28.129.183:8080/api';
+// running backend on local
+// const apiUrl = 'http://10.28.129.183:8080/api';
+// hosting backend server on ngrok
+const apiUrl =
+    'https://6267-2402-800-6327-5c1-ec0b-bf30-a01-e51e.ngrok-free.app/api';
+const websocketUrl =
+    'wss://6267-2402-800-6327-5c1-ec0b-bf30-a01-e51e.ngrok-free.app/api';
 
 ////////////// COLORS ////////////////
 

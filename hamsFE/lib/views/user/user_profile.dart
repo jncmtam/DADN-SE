@@ -367,7 +367,10 @@ class _UserProfileState extends State<UserProfile> {
     if (!granted) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Permission denied")),
+          SnackBar(
+            content: Text("Permission denied"),
+            backgroundColor: failStatus,
+          ),
         );
       }
       return;
@@ -384,7 +387,10 @@ class _UserProfileState extends State<UserProfile> {
     if (fileSize > 5 * 1024 * 1024) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("File size exceeds 5MB")),
+          SnackBar(
+            content: Text("File size exceeds 5MB"),
+            backgroundColor: failStatus,
+          ),
         );
         return;
       }
@@ -394,7 +400,10 @@ class _UserProfileState extends State<UserProfile> {
       await APIs.changeUserAvatar(avatarFile.path);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Avatar updated successfully")),
+          SnackBar(
+            content: Text("Avatar updated successfully"),
+            backgroundColor: successStatus,
+          ),
         );
       }
       if (!mounted) return;
@@ -403,7 +412,10 @@ class _UserProfileState extends State<UserProfile> {
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to update avatar")),
+          SnackBar(
+            content: Text("Failed to update avatar"),
+            backgroundColor: failStatus,
+          ),
         );
       }
       debugPrint('Error: $e');
