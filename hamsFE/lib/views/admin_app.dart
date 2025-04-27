@@ -35,8 +35,6 @@ class _AdminAppState extends State<AdminApp> {
         _isLoading = false;
         _pages = <Widget>[
           AdminHome(user: _user),
-          Temp(),
-          Temp(),
           AdminProfile(user: _user),
         ];
       });
@@ -98,11 +96,6 @@ class _AdminAppState extends State<AdminApp> {
                   items: [
                     BottomNavigationBarItem(
                         icon: Icon(Icons.home), label: 'Home'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.bar_chart), label: 'Statistics'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.notifications),
-                        label: 'Notifications'),
                     BottomNavigationBarItem(
                         icon: Icon(Icons.person), label: 'Profile'),
                   ],

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:hamsFE/controllers/session.dart';
 import 'package:hamsFE/models/cage.dart';
@@ -729,18 +728,46 @@ class APIs {
       throw Exception('Failed to load cages: $error');
     }
   }
-  Future<List<ChartData>> getChartData() async {
-    final listData = [
-      {"day": "2025-04-21", "value": 35}, // Monday
-      {"day": "2025-04-22", "value": 28}, // Tuesday
-      {"day": "2025-04-23", "value": 34}, // Wednesday
-      {"day": "2025-04-24", "value": 32}, // Thursday
-      {"day": "2025-04-25", "value": 40}, // Friday
-      {"day": "2025-04-26", "value": 25}, // Saturday
-      {"day": "2025-04-27", "value": 30}, // Sunday
-    ]
-        .map((data) => ChartData.fromJson(data))
-        .toList();
-    return listData;
+  Future<ChartResponse> getChartData(String cageid, String startDate, String endDate) async {
+    // Temporary: Return fake data while API is in development
+    return ChartResponse.fromJson({
+      "statistics": [
+        {"day": "2025-04-21", "value": 35}, // Monday
+        {"day": "2025-04-22", "value": 28}, // Tuesday
+        {"day": "2025-04-23", "value": 34}, // Wednesday
+        {"day": "2025-04-24", "value": 32}, // Thursday
+        {"day": "2025-04-25", "value": 40}, // Friday
+        {"day": "2025-04-26", "value": 25}, // Saturday
+        {"day": "2025-04-27", "value": 30}, // Sunday
+      ],
+      "summary": {
+        "average": 32.0,
+        "highest": 40.0,
+        "lowest": 25.0
+      }
+    });
+
+    // Comment out the actual API call for now
+    /*
+    Uri url = Uri.parse('$baseUrl/cages/$cageid/statistics');
+    final response = await http.get(
+      url.replace(queryParameters: {
+        'range': 'daily',
+        'start_date': startDate,
+        'end_date': endDate,
+      }),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}'
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return ChartResponse.fromJson(data);
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get chart data: $error');
+    }
+    */
   }
 }
