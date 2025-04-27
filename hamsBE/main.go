@@ -44,7 +44,7 @@ func main() {
 
 	// Initialize MQTT client
 	mqttClient, err := mqtt.StartMQTTClientSub(
-		"tcp://172.20.10.8:1883",
+		"tcp://10.28.128.93:1883",
 		"hamster/#",
 		"user1",
 		"cage1",

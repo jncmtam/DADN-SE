@@ -2,11 +2,11 @@
 #define CONFIG_H
 
 // WiFi credentials
-const char *SSID =  "K4li";
-const char *PASSWORD = "hackerdethuong";
+const char *SSID =  "ACLAB";
+const char *PASSWORD = "ACLAB2023";
 
 // MQTT server configuration
-const char *MQTT_SERVER = "172.20.10.8";
+const char *MQTT_SERVER = "10.28.128.93";
 const int MQTT_PORT = 1883;
 const char *MQTT_USER = "";
 const char *MQTT_KEY = "";

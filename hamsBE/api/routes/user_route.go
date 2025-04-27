@@ -18,10 +18,114 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	gorillawebsocket "github.com/gorilla/websocket"
 )
 
+func SetWebsocketRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttClient mqtt.Client) {
+	r.Use(middleware.JWTMiddleware())
+	{
+		cageRepo := repository.NewCageRepository(db)
+		// Middleware xác thực JWT qua query parameter token
+		authMiddleware := func(c *gin.Context) {
+			tokenStr := c.Query("token")
+			if tokenStr == "" {
+				log.Printf("[ERROR] Missing token in query parameter")
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+				return
+			}
+
+			token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+				}
+				return []byte("your-secret-key"), nil // Thay bằng secret key thực tế
+			})
+			if err != nil {
+				log.Printf("[ERROR] Invalid token: %v", err)
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+				return
+			}
+
+			if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+				userID, ok := claims["user_id"].(string)
+				if !ok {
+					log.Printf("[ERROR] user_id not found in token")
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+					return
+				}
+				c.Set("user_id", userID)
+				c.Next()
+			} else {
+				log.Printf("[ERROR] Invalid token claims")
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+				return
+			}
+		}
+
+		// Route cho endpoint thông báo: /ws/notifications
+		r.GET("/notifications", authMiddleware, func(c *gin.Context) {
+			userID, _ := c.Get("user_id")
+			upgrader := websocket.Upgrader{
+				ReadBufferSize:  1024,
+				WriteBufferSize: 1024,
+				CheckOrigin:     func(r *http.Request) bool { return true }, // Cho phép tất cả origin (có thể hạn chế trong production)
+			}
+
+			ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+			if err != nil {
+				log.Printf("[ERROR] Error upgrading to WebSocket for /ws/notifications: %v", err)
+				c.AbortWithStatus(http.StatusInternalServerError)
+				return
+			}
+
+			client := &websocket.Client{
+				UserID: userID.(string),
+				CageID: "", // Không cần CageID cho thông báo
+				Type:   "notification",
+				Conn:   ws,
+				Send:   make(chan []byte, 256),
+			}
+			wsHub.Register <- client
+			log.Printf("[INFO] WebSocket client registered: userID=%s, type=notification", userID.(string))
+
+			go client.WritePump()
+			go client.ReadPump(wsHub)
+		})
+
+		// Route cho endpoint dữ liệu cảm biến: /ws/cages/:cageID/sensors-data
+		api.GET("/cages/:cageID/sensors-data", authMiddleware, ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			userID, _ := c.Get("user_id")
+			cageID := c.Param("cageID")
+			upgrader := websocket.Upgrader{
+				ReadBufferSize:  1024,
+				WriteBufferSize: 1024,
+				CheckOrigin:     func(r *http.Request) bool { return true }, // Cho phép tất cả origin
+			}
+
+			ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+			if err != nil {
+				log.Printf("[ERROR] Error upgrading to WebSocket for /ws/cages/%s/sensors-data: %v", cageID, err)
+				c.AbortWithStatus(http.StatusInternalServerError)
+				return
+			}
+
+			client := &websocket.Client{
+				UserID: userID.(string),
+				CageID: cageID,
+				Type:   "sensor",
+				Conn:   ws,
+				Send:   make(chan []byte, 256),
+			}
+			wsHub.Register <- client
+			log.Printf("[INFO] WebSocket client registered: userID=%s, cageID=%s, type=sensor", userID.(string), cageID)
+
+			go client.WritePump()
+			go client.ReadPump(wsHub)
+		})
+	}
+}
 func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttClient mqtt.Client) {
 	userRepo := repository.NewUserRepository(db)
 	cageRepo := repository.NewCageRepository(db)
@@ -917,11 +1021,12 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 			client := &websocket.Client{
 				UserID: userID.(string),
 				CageID: cageID,
-				Type:   "notification",
+				Type:   "notification", // Đảm bảo Type là notification
 				Conn:   ws,
-				Send:   make(chan []byte),
+				Send:   make(chan []byte, 256), // 🔄 Thêm dung lượng cho kênh Send
 			}
 			wsHub.Register <- client
+			log.Printf("[INFO] WebSocket client registered: userID=%s, cageID=%s", userID.(string), cageID)
 
 			go client.WritePump()
 			go client.ReadPump(wsHub)

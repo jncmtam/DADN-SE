@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/rs/xid v1.4.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	golang.org/x/sync v0.12.0 // indirect
 )
@@ -57,5 +58,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/google/uuid v1.6.0
+	github.com/mochi-mqtt/server/v2 v2.7.9
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 )
