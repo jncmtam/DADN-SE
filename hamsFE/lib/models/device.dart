@@ -63,9 +63,10 @@ class UDetailedDevice {
       condRules: (json['automation_rule'] as List)
           .map((rule) => ConditionalRule.fromJson(rule))
           .toList(),
-      schedRules: (json['schedule_rule'] as List)
-          .map((rule) => ScheduledRule.fromJson(rule))
-          .toList(),
+      // schedRules: (json['schedule_rule'] as List)
+      //     .map((rule) => ScheduledRule.fromJson(rule))
+      //     .toList(),
+      schedRules: [],
       type: DeviceType.values.firstWhere(
         (e) => e.toString() == 'DeviceType.${json['action_type']}',
         orElse: () => DeviceType.on_off,

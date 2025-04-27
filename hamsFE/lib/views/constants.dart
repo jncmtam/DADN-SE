@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const apiUrl = 'http://10.28.129.110:8080/api';
+const apiUrl = 'http://10.28.129.183:8080/api';
 
 ////////////// COLORS ////////////////
 

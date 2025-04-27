@@ -236,7 +236,7 @@ class _UserCageScreenState extends State<UserCageScreen> {
                   size: 30,
                 ),
                 Text(
-                  '${sensor.value}',
+                  sensor.value.toStringAsFixed(1),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

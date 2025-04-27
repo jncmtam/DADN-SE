@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:hamsFE/controllers/session.dart';
 import 'package:hamsFE/models/cage.dart';
+import 'package:hamsFE/models/chartdata.dart';
 import 'package:hamsFE/models/device.dart';
 import 'package:hamsFE/models/noti.dart';
 import 'package:hamsFE/models/rule.dart';
@@ -284,12 +285,17 @@ class APIs {
 
   // Sensor Data APIs
   static WebSocketChannel listenCageSensorData(String cageId) {
-    return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
+    // return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
 
-    // final token = SessionManager().getJwt();
-    // final url =
-    //     Uri.parse('$baseUrl/user/cages/$cageId/sensor-data?token=$token');
-    // return WebSocketChannel.connect(url);
+    try {
+      final token = SessionManager().getJwt();
+      final url = Uri.parse(
+        'ws://10.28.129.183:8080/api/user/cages/$cageId/sensors-data?token=$token',
+      );
+      return WebSocketChannel.connect(url);
+    } catch (e) {
+      throw Exception('Failed to connect to WebSocket: $e');
+    }
   }
 
   // Device APIs
@@ -303,6 +309,32 @@ class APIs {
     };
 
     final response = await http.put(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to set device status: $error');
+    }
+  }
+
+  static Future<void> setDeviceStatus2(
+      String deviceId, DeviceStatus status) async {
+    Uri url = Uri.parse('$baseUrl/devices/$deviceId/control');
+
+    // create json payload
+    final payload = {
+      'action': status.toString().split('.').last,
+    };
+
+    final response = await http.post(
       url,
       headers: <String, String>{
         'Content-Type': 'application/json',
@@ -354,7 +386,7 @@ class APIs {
       body: jsonEncode(rule.toJson()),
     );
 
-    if (response.statusCode == 200) {
+    if (response.statusCode == 201) {
       return;
     } else {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
@@ -437,7 +469,7 @@ class APIs {
     // );
 
     // if (response.statusCode == 200) {
-    //   List<dynamic> notifications = jsonDecode(response.body);
+    //   List<dynamic> notifications = jsonDecode(response.body)['notifications'];
     //   return notifications
     //       .map((notification) => MyNotification.fromJson(notification))
     //       .toList();
@@ -748,5 +780,22 @@ class APIs {
       final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
       throw Exception('Failed to load cages: $error');
     }
+  }
+
+  Future<ChartResponse> getChartData(
+      String cageid, String startDate, String endDate) async {
+    // Temporary: Return fake data while API is in development
+    return ChartResponse.fromJson({
+      "statistics": [
+        {"day": "2025-04-21", "value": 35}, // Monday
+        {"day": "2025-04-22", "value": 28}, // Tuesday
+        {"day": "2025-04-23", "value": 34}, // Wednesday
+        {"day": "2025-04-24", "value": 32}, // Thursday
+        {"day": "2025-04-25", "value": 40}, // Friday
+        {"day": "2025-04-26", "value": 25}, // Saturday
+        {"day": "2025-04-27", "value": 30}, // Sunday
+      ],
+      "summary": {"average": 32.0, "highest": 40.0, "lowest": 25.0}
+    });
   }
 }

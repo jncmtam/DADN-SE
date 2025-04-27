@@ -60,11 +60,9 @@ class _UserHomeState extends State<UserHome> {
         await APIs.enableCage(cageId);
       }
 
-      // refresh the active device count
       final activeCnt = await APIs.getUserActiveDevices();
       setState(() {
         _activeDeviceCount = activeCnt;
-        // cage active status is updated in the cages list
         _cages = _cages.map((cage) {
           if (cage.id == cageId) {
             return UCage(
@@ -105,35 +103,32 @@ class _UserHomeState extends State<UserHome> {
               color: kBase0,
             ),
             children: [
-              TextSpan(
-                text: 'Hello ',
-              ),
+              TextSpan(text: 'Hello '),
               TextSpan(
                 text: widget.userName,
-                style: TextStyle(
-                  color: kBase3,
-                ),
+                style: TextStyle(color: kBase3),
               ),
             ],
           ),
         ),
       ),
       backgroundColor: lappBackground,
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildGeneralInfo(),
-            SizedBox(height: 20),
-            _buildCageList(),
-          ],
+      body: RefreshIndicator(
+        onRefresh: _fetchData,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: ListView(
+            children: [
+              _buildGeneralInfo(),
+              SizedBox(height: 20),
+              _buildCageList(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // active devices count
   Widget _buildGeneralInfo() {
     return Align(
       alignment: Alignment.centerRight,
@@ -155,60 +150,58 @@ class _UserHomeState extends State<UserHome> {
   }
 
   Widget _buildCageList() {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Cages (${_cages.length})',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: lSectionTitle,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Cages (${_cages.length})',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: lSectionTitle,
           ),
-          SizedBox(height: 10),
-          Expanded(
-            child: ListView.separated(
-              separatorBuilder: (context, index) => SizedBox(height: 10),
-              itemCount: _cages.length,
-              itemBuilder: (context, index) {
-                final cage = _cages[index];
-                return ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+        ),
+        SizedBox(height: 10),
+        ListView.separated(
+          physics:
+              NeverScrollableScrollPhysics(), // Important: disable inner list scroll
+          shrinkWrap: true, // Important: fit content inside ListView
+          separatorBuilder: (context, index) => SizedBox(height: 10),
+          itemCount: _cages.length,
+          itemBuilder: (context, index) {
+            final cage = _cages[index];
+            return ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              tileColor: cage.isEnabled ? lcardBackground : ldisableBackground,
+              title: Text(
+                cage.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: cage.isEnabled ? lCardTitle : lDisableText,
+                ),
+              ),
+              subtitle: Text('${cage.deviceCount} devices'),
+              trailing: Switch(
+                value: cage.isEnabled,
+                onChanged: (value) {
+                  _toggleCageStatus(cage.id, cage.isEnabled);
+                },
+                activeColor: lOnMode,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserCageScreen(cageId: cage.id),
                   ),
-                  tileColor:
-                      cage.isEnabled ? lcardBackground : ldisableBackground,
-                  title: Text(
-                    cage.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: cage.isEnabled ? lCardTitle : lDisableText,
-                    ),
-                  ),
-                  subtitle: Text('${cage.deviceCount} devices'),
-                  trailing: Switch(
-                    value: cage.isEnabled,
-                    onChanged: (value) {
-                      _toggleCageStatus(cage.id, cage.isEnabled);
-                    },
-                    activeColor: lOnMode,
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UserCageScreen(cageId: cage.id),
-                      ),
-                    );
-                  },
                 );
               },
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

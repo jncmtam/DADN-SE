@@ -27,7 +27,8 @@ class USensor {
         (e) => e.toString() == 'SensorType.${json['type']}',
         orElse: () => SensorType.temperature,
       ),
-      value: json['value'] ?? -1.0,
+      // value: json['value'] ?? -1.0,
+      value: -1.0,
       unit: json['unit'] ?? 'N/A',
     );
   }

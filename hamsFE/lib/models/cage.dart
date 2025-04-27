@@ -29,7 +29,7 @@ class UCage {
 class UDetailedCage {
   final String id;
   final String name;
-  final int deviceCount;
+  // final int deviceCount;
   final bool isEnabled;
 
   final List<UDevice> devices;
@@ -38,7 +38,7 @@ class UDetailedCage {
   UDetailedCage({
     required this.id,
     required this.name,
-    required this.deviceCount,
+    // required this.deviceCount,
     required this.isEnabled,
     required this.devices,
     required this.sensors,
@@ -48,7 +48,7 @@ class UDetailedCage {
     return UDetailedCage(
       id: json['id'] ?? 'N/A',
       name: json['name'] ?? 'N/A',
-      deviceCount: json['num_device'] ?? -1,
+      // deviceCount: json['num_device'] ?? -1,
       isEnabled: json['status'] == 'on' ? true : false,
       devices: (json['devices'] as List)
           .map((device) => UDevice.fromJson(device))

@@ -79,7 +79,7 @@ List<USensor> sampleSensors = [
 UDetailedCage sampleDetailedCage = UDetailedCage(
   id: '5ca7747f-2e0d-4eb5-9b62-3d17e937332b',
   name: 'Cage 1',
-  deviceCount: 5,
+  // deviceCount: 5,
   isEnabled: true,
   devices: sampleDevices,
   sensors: sampleSensors,

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hamsFE/controllers/apis.dart';
-import 'package:hamsFE/views/temp.dart';
 import '../models/user.dart';
 import 'admin/admin_home.dart';
 import 'admin/admin_profile.dart';
@@ -35,8 +34,6 @@ class _AdminAppState extends State<AdminApp> {
         _isLoading = false;
         _pages = <Widget>[
           AdminHome(user: _user),
-          Temp(),
-          Temp(),
           AdminProfile(user: _user),
         ];
       });
@@ -98,11 +95,6 @@ class _AdminAppState extends State<AdminApp> {
                   items: [
                     BottomNavigationBarItem(
                         icon: Icon(Icons.home), label: 'Home'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.bar_chart), label: 'Statistics'),
-                    BottomNavigationBarItem(
-                        icon: Icon(Icons.notifications),
-                        label: 'Notifications'),
                     BottomNavigationBarItem(
                         icon: Icon(Icons.person), label: 'Profile'),
                   ],
