@@ -6,6 +6,18 @@ CREATE TABLE statistics (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Added for consistency
     FOREIGN KEY (cage_id) REFERENCES cages(id) ON DELETE CASCADE
 );
+CREATE TABLE water_refills (
+    id UUID PRIMARY KEY,
+    cage_id UUID NOT NULL,
+    water_refill_sl INTEGER DEFAULT 1,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+
+    CONSTRAINT fk_cage
+      FOREIGN KEY(cage_id)
+      REFERENCES cages(id)
+      ON DELETE CASCADE
+);
 
 CREATE INDEX idx_statistic_cage_id ON statistics(cage_id);
 CREATE INDEX idx_statistic_created_at ON statistics(created_at);

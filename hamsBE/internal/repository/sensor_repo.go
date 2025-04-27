@@ -1,16 +1,90 @@
-// internal/repository/sensor_repo.go
 package repository
 
 import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
 
-type SensorRepository struct{
+type ownershipChecker interface {
+	GetOwnerID(ctx context.Context, resourceID string) (string, error)
+	IsExistsID(ctx context.Context, resourceID string) (bool, error)
+	IsOwnedByUser(ctx context.Context, resourceID, userID string) (bool, error)
+}
+
+type SensorRepository struct {
 	db *sql.DB
+}
+func (r *SensorRepository) DB() *sql.DB {
+    return r.db
+}
+// IsExistsID checks if a sensor with the given ID exists
+func (r *SensorRepository) IsExistsID(ctx context.Context, sensorID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+        SELECT EXISTS (
+            SELECT 1 
+            FROM sensors 
+            WHERE id = $1
+        )
+    `, sensorID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if sensor exists: %v", err)
+	}
+	return exists, nil
+}
+
+// IsOwnedByUser checks if the sensor belongs to the specified user
+func (r *SensorRepository) IsOwnedByUser(ctx context.Context, sensorID, userID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+        SELECT EXISTS (
+            SELECT 1 
+            FROM sensors s
+            JOIN cages c ON s.cage_id = c.id
+            WHERE s.id = $1 AND c.user_id = $2
+        )
+    `, sensorID, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check ownership of sensor %s: %v", sensorID, err)
+	}
+	return exists, nil
+}
+
+func (r *SensorRepository) GetSensorByID(ctx context.Context, sensorID string) (*model.SensorResponse, error) {
+	var sensor model.SensorResponse
+	err := r.db.QueryRowContext(ctx, `
+        SELECT id, name, type, value, unit, cage_id
+        FROM sensors
+        WHERE id = $1
+    `, sensorID).Scan(&sensor.ID, &sensor.Name, &sensor.Type, &sensor.Value, &sensor.Unit, &sensor.CageID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("%w: sensor with ID %s", err, sensorID)
+		}
+		return nil, fmt.Errorf("failed to fetch sensor: %v", err)
+	}
+	return &sensor, nil
+}
+
+func (r *SensorRepository) GetOwnerID(ctx context.Context, sensorID string) (string, error) {
+	var userID string
+	err := r.db.QueryRowContext(ctx, `
+        SELECT c.user_id 
+        FROM sensors s
+        JOIN cages c ON s.cage_id = c.id
+        WHERE s.id = $1
+    `, sensorID).Scan(&userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("sensor with ID %s not found", sensorID)
+		}
+		return "", fmt.Errorf("failed to fetch owner ID for sensor %s: %v", sensorID, err)
+	}
+	return userID, nil
 }
 
 func NewSensorRepository(db *sql.DB) *SensorRepository {
@@ -24,23 +98,23 @@ func (r *SensorRepository) GetSensorsByCageID(ctx context.Context, cageID string
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, cageID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var sensors []*model.SensorResponse
-    for rows.Next() {
-        sensor := &model.SensorResponse{}
-        if err := rows.Scan(
-            &sensor.ID, &sensor.Type,
-            &sensor.Unit,
-        ); err != nil {
-            return nil, err
-        }
-        sensors = append(sensors, sensor)
-    }
-    return sensors, nil
+	var sensors []*model.SensorResponse
+	for rows.Next() {
+		sensor := &model.SensorResponse{}
+		if err := rows.Scan(
+			&sensor.ID, &sensor.Type,
+			&sensor.Unit,
+		); err != nil {
+			return nil, err
+		}
+		sensors = append(sensors, sensor)
+	}
+	return sensors, nil
 }
 
 func (r *SensorRepository) CreateSensor(ctx context.Context, name, sensorType, unit, cageID string) (*model.Sensor, error) {
@@ -65,7 +139,6 @@ func (r *SensorRepository) CreateSensor(ctx context.Context, name, sensorType, u
 	}
 	return sensor, nil
 }
-
 
 func (r *SensorRepository) DeleteSensorByID(ctx context.Context, sensorID string) error {
 	query, err := queries.GetQuery("delete_sensor_by_id")

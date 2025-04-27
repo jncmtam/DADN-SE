@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
@@ -41,7 +42,26 @@ func (r *DeviceRepository) CreateDevice(ctx context.Context, name, deviceType, c
 
 	return device, nil
 }
+func (r *DeviceRepository) UpdateDeviceStatus(ctx context.Context, deviceID, status string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE devices 
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2
+	`, status, deviceID)
+	if err != nil {
+		return fmt.Errorf("không thể cập nhật trạng thái device %s: %v", deviceID, err)
+	}
 
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("không thể kiểm tra số hàng bị ảnh hưởng: %v", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("device %s không tồn tại", deviceID)
+	}
+
+	return nil
+}
 
 func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string) ([]*model.DeviceResponse, error) {
 	query, err := queries.GetQuery("get_devices_by_cageID")
@@ -122,14 +142,20 @@ func (r *DeviceRepository) DeleteDeviceByID(ctx context.Context, deviceID string
 	return err
 }
 
-func (r *DeviceRepository) IsOwnedByUser(ctx context.Context, userID, deviceID string) (bool, error) {
-	query, err := queries.GetQuery("IsOwnedByUser_Device")
+func (r *DeviceRepository) IsOwnedByUser(ctx context.Context, deviceID, userID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 
+			FROM devices d
+			JOIN cages c ON d.cage_id = c.id
+			WHERE d.id = $1 AND c.user_id = $2
+		)
+	`, deviceID, userID).Scan(&exists)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check ownership of device %s: %v", deviceID, err)
 	}
-	var count int
-    err = r.db.QueryRowContext(ctx, query, deviceID, userID).Scan(&count)
-    return count > 0, err
+	return exists, nil
 }
 
 func (r *DeviceRepository) DeviceExists(ctx context.Context, deviceID string) (bool, error) {

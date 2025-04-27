@@ -8,3 +8,4 @@ exclude_dir = ["tmp", "vendor", "node_modules"]
 ignore_dir = ["assets", "public"]
 delay = 1000
 log = "air.log"
+

@@ -188,7 +188,7 @@ func UpdateWaterStatistic(db *sql.DB, cageID string) error {
     if err == sql.ErrNoRows {
         statisticID = uuid.New().String()
         _, err = db.Exec(`
-            INSERT INTO statistic (id, cage_id, water_refill_sl, created_at, updated_at)
+            INSERT INTO statistics (id, cage_id, water_refill_sl, created_at, updated_at)
             VALUES ($1, $2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `, statisticID, cageID)
         if err != nil {
@@ -199,7 +199,7 @@ func UpdateWaterStatistic(db *sql.DB, cageID string) error {
         return fmt.Errorf("error checking statistic: %v", err)
     } else {
         _, err = db.Exec(`
-            UPDATE statistic
+            UPDATE statistics
             SET water_refill_sl = water_refill_sl + 1, updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
         `, statisticID)

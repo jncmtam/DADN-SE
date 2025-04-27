@@ -10,9 +10,19 @@ import (
 
 type SensorService struct {
 	SensorRepo *repository.SensorRepository
-	CageRepo *repository.CageRepository
+	CageRepo   *repository.CageRepository
 }
 
+func (s *SensorService) GetSensorByID(ctx context.Context, sensorID string) (*model.SensorResponse, error) {
+	if sensorID == "" {
+		return nil, errors.New("sensorID is required")
+	}
+	sensor, err := s.SensorRepo.GetSensorByID(ctx, sensorID)
+	if err != nil {
+		return nil, err
+	}
+	return sensor, nil
+}
 func NewSensorService(SensorRepo *repository.SensorRepository, CageRepo *repository.CageRepository) *SensorService {
 	return &SensorService{SensorRepo: SensorRepo, CageRepo: CageRepo}
 }
@@ -54,7 +64,6 @@ func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, unit, c
 		}
 	}
 
-
 	sensor, err := s.SensorRepo.CreateSensor(ctx, name, sensorType, unit, cageID)
 	if err != nil {
 		return nil, err
@@ -64,14 +73,14 @@ func (s *SensorService) AddSensor(ctx context.Context, name, sensorType, unit, c
 }
 
 func (s *SensorService) DeleteSensor(ctx context.Context, sensorID string) error {
-	if sensorID == ""{
+	if sensorID == "" {
 		return errors.New("name, sensorType and cageID are required")
 	}
-	
+
 	if err := IsValidUUID(sensorID); err != nil {
-		return err 
+		return err
 	}
-	
+
 	exists, err := s.SensorRepo.SensorExists(ctx, sensorID)
 	if err != nil {
 		return fmt.Errorf("error checking sensor existence: %w", err)
@@ -79,7 +88,6 @@ func (s *SensorService) DeleteSensor(ctx context.Context, sensorID string) error
 	if !exists {
 		return fmt.Errorf("%w: sensor with ID %s does not exist", ErrSensorNotFound, sensorID)
 	}
-
 
 	return s.SensorRepo.DeleteSensorByID(ctx, sensorID)
 }

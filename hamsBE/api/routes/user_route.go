@@ -13,6 +13,7 @@ import (
 	"hamstercare/internal/websocket"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -31,10 +32,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 	sensorService := service.NewSensorService(sensorRepo, cageRepo)
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
-	scheduleRepo := repository.NewScheduleRepository(db)
-	scheduleService := service.NewScheduleService(scheduleRepo)
-
-	go monitorSensors(db, wsHub)
 
 	r.Use(middleware.JWTMiddleware())
 	{
@@ -65,11 +62,28 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 
 			cageRes := []map[string]interface{}{}
 			for _, cage := range cages {
+				// Lấy danh sách sensors
+				sensors, err := sensorService.GetSensorsByCageID(c.Request.Context(), cage.ID)
+				if err != nil {
+					log.Printf("[ERROR] Error fetching sensors for cage %s: %v", cage.ID, err.Error())
+					continue
+				}
+
+				// Lấy danh sách devices
+				devices, err := deviceService.GetDevicesByCageID(c.Request.Context(), cage.ID)
+				if err != nil {
+					log.Printf("[ERROR] Error fetching devices for cage %s: %v", cage.ID, err.Error())
+					continue
+				}
+
 				cageMap := map[string]interface{}{
 					"id":         cage.ID,
 					"name":       cage.Name,
+					"num_sensor": cage.NumSensor,
 					"num_device": cage.NumDevice,
 					"status":     cage.Status,
+					"sensors":    sensors,
+					"devices":    devices,
 				}
 				cageRes = append(cageRes, cageMap)
 			}
@@ -233,7 +247,143 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				"summary":    summary,
 			})
 		})
+		r.DELETE("/automations/:ruleID", func(c *gin.Context) {
+			ruleID := c.Param("ruleID")
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
 
+			// Verify ownership and existence
+			var cageID, ownerID string
+			err := db.QueryRowContext(c.Request.Context(), `
+				SELECT c.id, c.user_id
+				FROM automation_rules ar
+				JOIN cages c ON ar.cage_id = c.id
+				WHERE ar.id = $1
+			`, ruleID).Scan(&cageID, &ownerID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Automation rule not found"})
+					return
+				}
+				log.Printf("[ERROR] Error checking automation rule ownership: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			if ownerID != userID.(string) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+				return
+			}
+
+			// Delete the rule
+			_, err = db.ExecContext(c.Request.Context(), `
+				DELETE FROM automation_rules WHERE id = $1
+			`, ruleID)
+			if err != nil {
+				log.Printf("[ERROR] Error deleting automation rule %s: %v", ruleID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			// Send WebSocket notification
+			title := "Automation Rule Deleted"
+			message := fmt.Sprintf("Automation rule %s has been deleted", ruleID)
+			wsMsg := websocket.Message{
+				UserID:  userID.(string),
+				Type:    "info",
+				Title:   title,
+				Message: message,
+				CageID:  cageID,
+				Time:    time.Now().Unix(),
+				Value:   0.0,
+			}
+			select {
+			case wsHub.Broadcast <- wsMsg:
+				log.Printf("[INFO] Sent WebSocket notification: %s", message)
+			default:
+				log.Printf("[WARN] WebSocket broadcast channel full, dropping notification: %s", message)
+			}
+
+			// Store notification
+			_, err = db.ExecContext(c.Request.Context(), `
+				INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			`, uuid.New().String(), userID.(string), cageID, "info", title, message, false, time.Now())
+			if err != nil {
+				log.Printf("[ERROR] Error storing notification: %v", err)
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Automation rule deleted successfully",
+			})
+		})
+		r.GET("/notifications", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+
+			limitStr := c.Query("limit")
+			offsetStr := c.Query("offset")
+			limit, err := strconv.Atoi(limitStr)
+			if err != nil || limit <= 0 {
+				limit = 10 // Default limit
+			}
+			offset, err := strconv.Atoi(offsetStr)
+			if err != nil || offset < 0 {
+				offset = 0 // Default offset
+			}
+
+			rows, err := db.QueryContext(c.Request.Context(), `
+				SELECT id, cage_id, type, title, message, is_read, created_at
+				FROM notifications
+				WHERE user_id = $1
+				ORDER BY created_at DESC
+				LIMIT $2 OFFSET $3
+			`, userID.(string), limit, offset)
+			if err != nil {
+				log.Printf("[ERROR] Error querying notifications: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			defer rows.Close()
+
+			notifications := []map[string]interface{}{}
+			for rows.Next() {
+				var n struct {
+					ID        string
+					CageID    string
+					Type      string
+					Title     string
+					Message   string
+					IsRead    bool
+					CreatedAt time.Time
+				}
+				if err := rows.Scan(&n.ID, &n.CageID, &n.Type, &n.Title, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
+					log.Printf("[ERROR] Error scanning notification: %v", err)
+					continue
+				}
+				notifications = append(notifications, map[string]interface{}{
+					"id":         n.ID,
+					"cage_id":    n.CageID,
+					"type":       n.Type,
+					"title":      n.Title,
+					"message":    n.Message,
+					"is_read":    n.IsRead,
+					"created_at": n.CreatedAt.Format(time.RFC3339),
+				})
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"notifications": notifications,
+				"count":         len(notifications),
+			})
+		})
 		r.PUT("/cages/:cageID/settings", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
 			cageID := c.Param("cageID")
 
@@ -289,17 +439,17 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 			client := &websocket.Client{
 				UserID: userID.(string),
 				CageID: cageID,
+				Type:   "sensor",
 				Conn:   ws,
 				Send:   make(chan []byte),
 			}
 			wsHub.Register <- client
 
-			client.WritePump()
+			go client.WritePump()
 			go client.ReadPump(wsHub)
 		})
-
-		r.GET("/cages/:cageID/notifications/ws", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
-			cageID := c.Param("cageID")
+		r.POST("/devices/:deviceID/control", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
 			userID, exists := c.Get("user_id")
 			if !exists {
 				log.Printf("[ERROR] user_id not found in context")
@@ -307,28 +457,231 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				return
 			}
 
-			upgrader := gorillawebsocket.Upgrader{
-				ReadBufferSize:  1024,
-				WriteBufferSize: 1024,
-				CheckOrigin:     func(r *http.Request) bool { return true },
+			var req struct {
+				Action string `json:"action" binding:"required,oneof=turn_on turn_off refill lock auto"`
 			}
-			ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-			if err != nil {
-				log.Printf("[ERROR] Error upgrading to WebSocket: %v", err)
+			if err := c.ShouldBindJSON(&req); err != nil {
+				log.Printf("[ERROR] Invalid request body: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 				return
 			}
 
-			client := &websocket.Client{
-				UserID: userID.(string),
-				CageID: cageID,
-				Conn:   ws,
-				Send:   make(chan []byte),
-				Type:   "notification",
+			var currentStatus, deviceName, deviceType string
+			var cageID string
+			err := db.QueryRowContext(c.Request.Context(), `
+				SELECT status, name, type, cage_id FROM devices WHERE id = $1
+			`, deviceID).Scan(&currentStatus, &deviceName, &deviceType, &cageID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err)
+				c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+				return
 			}
-			wsHub.Register <- client
 
-			go client.WritePump()
-			go client.ReadPump(wsHub)
+			// Validate action based on device type
+			validActions := map[string][]string{
+				"fan":   {"turn_on", "turn_off", "auto"},
+				"light": {"turn_on", "turn_off", "auto"},
+				"pump":  {"refill", "auto"},
+				"lock":  {"lock", "auto"},
+			}
+			allowedActions, ok := validActions[deviceType]
+			if !ok || !contains(allowedActions, req.Action) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Action '%s' not allowed for device type '%s'", req.Action, deviceType)})
+				return
+			}
+
+			// Map action to new status
+			actionToStatus := map[string]string{
+				"turn_on":  "on",
+				"turn_off": "off",
+				"refill":   "on",
+				"lock":     "locked",
+				"auto":     "auto",
+			}
+			newStatus := actionToStatus[req.Action]
+
+			if currentStatus == newStatus {
+				c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Device %s already %s", deviceName, newStatus)})
+				return
+			}
+
+			tx, err := db.BeginTx(c.Request.Context(), nil)
+			if err != nil {
+				log.Printf("[ERROR] Error starting transaction: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			defer tx.Rollback()
+
+			// Update device status
+			_, err = tx.ExecContext(c.Request.Context(), `
+				UPDATE devices
+				SET status = $1, last_status = status, updated_at = $2
+				WHERE id = $3
+			`, newStatus, time.Now(), deviceID)
+			if err != nil {
+				log.Printf("[ERROR] Error updating device %s status: %v", deviceID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			var username, cagename string
+			err = tx.QueryRowContext(c.Request.Context(), `
+				SELECT u.username, c.name
+				FROM users u
+				JOIN cages c ON c.user_id = u.id
+				WHERE c.id = $1
+			`, cageID).Scan(&username, &cagename)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching username and cagename: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			// Send MQTT message
+			// Send MQTT message
+			if req.Action != "auto" {
+				topic := fmt.Sprintf("hamster/%s/%s/device/%s/%s", username, cagename, deviceID, deviceName)
+
+				// 🌟 Convert action -> value float64
+				var valueFloat float64
+				switch req.Action {
+				case "turn_on", "refill", "lock":
+					valueFloat = 1.0
+				case "turn_off":
+					valueFloat = 0.0
+				default:
+					valueFloat = 0.0
+				}
+
+				payload := map[string]interface{}{
+					"username": username,
+					"cagename": cagename,
+					"type":     "device",
+					"id":       deviceID,
+					"dataname": deviceName,
+					"value":    valueFloat, // ✅ đúng chuẩn float64
+					"time":     time.Now().Unix() * 1000,
+				}
+				payloadBytes, err := json.Marshal(payload)
+				if err != nil {
+					log.Printf("[ERROR] Error marshaling MQTT payload: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+					return
+				}
+				if token := mqttClient.Publish(topic, 0, false, payloadBytes); token.Wait() && token.Error() != nil {
+					log.Printf("[ERROR] Error publishing to %s: %v", topic, token.Error())
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish MQTT message"})
+					return
+				}
+				log.Printf("[INFO] Published to MQTT topic %s: %s", topic, string(payloadBytes))
+			}
+
+			// Send WebSocket notification
+			title := fmt.Sprintf("Device %s: Action %s", deviceName, req.Action)
+			messageText := fmt.Sprintf("Device %s set to %s", deviceName, newStatus)
+			wsMsg := websocket.Message{
+				UserID:  userID.(string),
+				Type:    "notification",
+				Title:   title,
+				Message: messageText,
+				CageID:  cageID,
+				Time:    time.Now().Unix(),
+				Value:   0.0,
+			}
+			select {
+			case wsHub.Broadcast <- wsMsg:
+				log.Printf("[INFO] Sent WebSocket notification: %s", messageText)
+			default:
+				log.Printf("[WARN] WebSocket broadcast channel full, dropping notification: %s", messageText)
+			}
+
+			// Store notification
+			_, err = tx.ExecContext(c.Request.Context(), `
+				INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			`, uuid.New().String(), userID.(string), cageID, "info", title, messageText, false, time.Now())
+			if err != nil {
+				log.Printf("[ERROR] Error storing notification: %v", err)
+			}
+
+			// Handle pump auto-off
+			if deviceType == "pump" && req.Action == "refill" {
+				go func() {
+					time.Sleep(2 * time.Second)
+					newTx, err := db.BeginTx(context.Background(), nil)
+					if err != nil {
+						log.Printf("[ERROR] Error starting transaction for pump turn_off: %v", err)
+						return
+					}
+					defer newTx.Rollback()
+
+					_, err = newTx.ExecContext(context.Background(), `
+						UPDATE devices 
+						SET status = 'off', last_status = 'on', updated_at = $1 
+						WHERE id = $2
+					`, time.Now(), deviceID)
+					if err != nil {
+						log.Printf("[ERROR] Error turning off pump %s: %v", deviceID, err)
+						return
+					}
+
+					topic := fmt.Sprintf("hamster/%s/%s/device/%s/%s", username, cagename, deviceID, deviceName)
+					payload := map[string]interface{}{
+						"username": username,
+						"cagename": cagename,
+						"type":     "device",
+						"id":       deviceID,
+						"dataname": deviceName,
+						"value":    "turn_off",
+						"time":     time.Now().Unix() * 1000,
+					}
+					payloadBytes, _ := json.Marshal(payload)
+					if token := mqttClient.Publish(topic, 0, false, payloadBytes); token.Wait() && token.Error() != nil {
+						log.Printf("[ERROR] Error publishing pump turn_off: %v", token.Error())
+					}
+
+					title := "Device: Pump Stopped"
+					message := "Pump turned off after 2-second refill"
+					wsMsg := websocket.Message{
+						UserID:  userID.(string),
+						Type:    "info",
+						Title:   title,
+						Message: message,
+						CageID:  cageID,
+						Time:    time.Now().Unix(),
+						Value:   0.0,
+					}
+					select {
+					case wsHub.Broadcast <- wsMsg:
+						log.Printf("[INFO] Sent WebSocket notification: %s", message)
+					default:
+						log.Printf("[WARN] WebSocket broadcast channel full, dropping notification: %s", message)
+					}
+
+					_, err = newTx.ExecContext(context.Background(), `
+						INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+					`, uuid.New().String(), userID.(string), cageID, "info", title, message, false, time.Now())
+					if err != nil {
+						log.Printf("[ERROR] Error storing pump stop notification: %v", err)
+					}
+
+					if err := newTx.Commit(); err != nil {
+						log.Printf("[ERROR] Error committing pump turn_off transaction: %v", err)
+					}
+				}()
+			}
+
+			if err := tx.Commit(); err != nil {
+				log.Printf("[ERROR] Error committing transaction: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Device action executed successfully",
+			})
 		})
 
 		r.GET("/cages/:cageID", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
@@ -387,6 +740,25 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				"devices": devicesWithActionType,
 			})
 		})
+		r.GET("/sensors/:sensorID", ownershipMiddleware(sensorRepo, "sensorID"), func(c *gin.Context) {
+			sensorID := c.Param("sensorID")
+
+			sensor, err := sensorService.GetSensorByID(c.Request.Context(), sensorID)
+			if err != nil {
+				log.Printf("[ERROR] Error fetching sensor %s: %v", sensorID, err.Error())
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"id":      sensor.ID,
+				"name":    sensor.Name,
+				"type":    sensor.Type,
+				"value":   sensor.Value,
+				"unit":    sensor.Unit,
+				"cage_id": sensor.CageID,
+			})
+		})
 
 		r.GET("/devices/:deviceID", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
@@ -405,25 +777,30 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				return
 			}
 
-			scheduleRules, err := scheduleService.GetRulesByDeviceID(c.Request.Context(), deviceID)
-			if err != nil {
-				log.Printf("[ERROR] Error fetching schedule rules for device %s: %v", deviceID, err.Error())
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			}
-
 			var actionType string = "on_off"
 			if device.Type == "pump" {
 				actionType = "refill"
+			}
+
+			automationRulesRes := []map[string]interface{}{}
+			for _, rule := range automationRules {
+				automationRulesRes = append(automationRulesRes, map[string]interface{}{
+					"id":          rule.ID,
+					"sensor_id":   rule.SensorID,
+					"sensor_type": rule.SensorType,
+					"condition":   rule.Condition,
+					"threshold":   rule.Threshold,
+					"unit":        rule.Unit,
+					"action":      rule.Action,
+				})
 			}
 
 			c.JSON(http.StatusOK, gin.H{
 				"id":              device.ID,
 				"name":            device.Name,
 				"status":          device.Status,
-				"action_type":     actionType,
-				"automation_rule": automationRules,
-				"schedule_rule":   scheduleRules,
+				"type":            actionType,
+				"automation_rule": automationRulesRes,
 			})
 		})
 
@@ -440,7 +817,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				SensorID  string  `json:"sensor_id" binding:"required,uuid"`
 				Condition string  `json:"condition" binding:"required,oneof=> < ="`
 				Threshold float64 `json:"threshold" binding:"required"`
-				Action    string  `json:"action" binding:"required,oneof=turn_on turn_off refill lock"`
+				Action    string  `json:"action" binding:"required,oneof=turn_on turn_off refill"`
 			}
 
 			if err := c.ShouldBindJSON(&req); err != nil {
@@ -449,9 +826,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				return
 			}
 
-			// Verify device exists and get cage_id
 			var cageID string
-			err := db.QueryRowContext(c, `
+			err := db.QueryRowContext(c.Request.Context(), `
                 SELECT cage_id FROM devices WHERE id = $1
             `, deviceID).Scan(&cageID)
 			if err != nil {
@@ -460,9 +836,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				return
 			}
 
-			// Verify sensor exists and belongs to same cage
 			var sensorUnit string
-			err = db.QueryRowContext(c, `
+			err = db.QueryRowContext(c.Request.Context(), `
                 SELECT unit FROM sensors WHERE id = $1 AND cage_id = $2
             `, req.SensorID, cageID).Scan(&sensorUnit)
 			if err != nil {
@@ -471,9 +846,8 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				return
 			}
 
-			// Verify user owns cage
 			var owned bool
-			err = db.QueryRowContext(c, `
+			err = db.QueryRowContext(c.Request.Context(), `
                 SELECT EXISTS (
                     SELECT 1 FROM cages WHERE id = $1 AND user_id = $2
                 )
@@ -490,7 +864,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				CageID:    cageID,
 				Condition: req.Condition,
 				Threshold: req.Threshold,
-				Unit:      sensorUnit, // Include unit if added to schema
+				Unit:      sensorUnit,
 				Action:    req.Action,
 			}
 			createdRule, err := automationService.AddAutomationRule(c.Request.Context(), rule, cageService)
@@ -508,36 +882,20 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "Automation rule created successfully",
-				"id":      createdRule.ID,
+				"automation_rule": map[string]interface{}{
+					"id":          createdRule.ID,
+					"sensor_id":   createdRule.SensorID,
+					"sensor_type": createdRule.SensorType, // Add sensor type from sensors table
+					"condition":   createdRule.Condition,
+					"threshold":   createdRule.Threshold,
+					"unit":        createdRule.Unit,
+					"action":      createdRule.Action,
+				},
 			})
 		})
 
-		r.DELETE("/schedules/:ruleID", ownershipMiddleware(scheduleRepo, "ruleID"), func(c *gin.Context) {
-			ruleID := c.Param("ruleID")
-
-			err := scheduleService.RemoveScheduleRule(c.Request.Context(), ruleID)
-			if err != nil {
-				switch {
-				case errors.Is(err, service.ErrInvalidUUID):
-					log.Printf("[ERROR] Invalid UUID format for ruleID: %s", ruleID)
-					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-				case errors.Is(err, service.ErrRuleNotFound):
-					log.Printf("[ERROR] Schedule rule not found: %s", ruleID)
-					c.JSON(http.StatusNotFound, gin.H{"error": "Schedule rule not found"})
-				default:
-					log.Printf("[ERROR] Failed to delete schedule rule %s: %v", ruleID, err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				}
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Schedule rule deleted successfully",
-			})
-		})
-
-		r.POST("/devices/:deviceID/control", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
-			deviceID := c.Param("deviceID")
+		r.GET("/cages/:cageID/notifications/ws", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			cageID := c.Param("cageID")
 			userID, exists := c.Get("user_id")
 			if !exists {
 				log.Printf("[ERROR] user_id not found in context")
@@ -545,153 +903,28 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 				return
 			}
 
-			var req struct {
-				Action string `json:"action" binding:"required,oneof=turn_on turn_off"`
+			upgrader := gorillawebsocket.Upgrader{
+				ReadBufferSize:  1024,
+				WriteBufferSize: 1024,
+				CheckOrigin:     func(r *http.Request) bool { return true },
 			}
-
-			if err := c.ShouldBindJSON(&req); err != nil {
-				log.Printf("[ERROR] Invalid request body: %v", err.Error())
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-				return
-			}
-
-			var currentStatus string
-			err := db.QueryRowContext(c.Request.Context(), `
-                SELECT status FROM devices WHERE id = $1
-            `, deviceID).Scan(&currentStatus)
+			ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 			if err != nil {
-				log.Printf("[ERROR] Error fetching device status: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				log.Printf("[ERROR] Error upgrading to WebSocket: %v", err)
 				return
 			}
 
-			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
-			if err != nil {
-				log.Printf("[ERROR] Error fetching device %s: %v", deviceID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
+			client := &websocket.Client{
+				UserID: userID.(string),
+				CageID: cageID,
+				Type:   "notification",
+				Conn:   ws,
+				Send:   make(chan []byte),
 			}
+			wsHub.Register <- client
 
-			var newStatus string
-			switch req.Action {
-			case "turn_on":
-				newStatus = "on"
-			case "turn_off":
-				newStatus = "off"
-			}
-
-			_, err = db.ExecContext(c.Request.Context(), `
-                UPDATE devices
-                SET status = $1, last_status = status, updated_at = $2
-                WHERE id = $3
-            `, newStatus, time.Now(), deviceID)
-			if err != nil {
-				log.Printf("[ERROR] Error updating device %s status: %v", deviceID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			}
-
-			var username, cagename string
-			err = db.QueryRowContext(c.Request.Context(), `
-                SELECT u.username, c.name
-                FROM users u
-                JOIN cages c ON c.user_id = u.id
-                WHERE c.id = $1
-            `, device.CageID).Scan(&username, &cagename)
-			if err != nil {
-				log.Printf("[ERROR] Error fetching username and cagename: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-				return
-			}
-
-			topic := fmt.Sprintf("hamster/%s/%s/device/%s", username, cagename, deviceID)
-			payload := map[string]interface{}{
-				"username": username,
-				"cagename": cagename,
-				"type":     "device",
-				"id":       deviceID,
-				"dataname": device.Name,
-				"value":    req.Action,
-				"time":     time.Now().Unix(),
-			}
-			payloadBytes, err := json.Marshal(payload)
-			if err != nil {
-				log.Printf("[ERROR] Error marshaling MQTT payload: %v", err)
-			} else {
-				log.Printf("[INFO] Publishing to MQTT topic %s: %s", topic, string(payloadBytes))
-				mqttClient.Publish(topic, 0, false, payloadBytes)
-			}
-
-			title := fmt.Sprintf("Device %s: Action %s executed", device.Name, req.Action)
-			messageText := fmt.Sprintf("Device %s %s", device.Name, req.Action)
-			wsHub.Broadcast <- websocket.Message{
-				UserID:  userID.(string),
-				Type:    "info",
-				Title:   title,
-				Message: messageText,
-				CageID:  device.CageID,
-				Time:    time.Now().Unix(),
-				Value:   0.0,
-			}
-
-			_, err = db.ExecContext(c.Request.Context(), `
-                INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            `, uuid.New().String(), userID.(string), device.CageID, "info", title, messageText, false, time.Now())
-			if err != nil {
-				log.Printf("[ERROR] Error storing device action notification: %v", err)
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Device action executed successfully",
-			})
-		})
-
-		r.GET("/notifications", func(c *gin.Context) {
-			userID, exists := c.Get("user_id")
-			if !exists {
-				log.Printf("[ERROR] user_id not found in context")
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-				return
-			}
-
-			rows, err := db.QueryContext(c.Request.Context(), `
-                SELECT id, user_id, cage_id, type, title, message, is_read, created_at
-                FROM notifications
-                WHERE user_id = $1
-                ORDER BY created_at DESC
-            `, userID.(string))
-			if err != nil {
-				log.Printf("[ERROR] Error querying notifications for user %s: %v", userID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch notifications"})
-				return
-			}
-			defer rows.Close()
-
-			notifications := []map[string]interface{}{}
-			for rows.Next() {
-				var n model.Notification
-				if err := rows.Scan(&n.ID, &n.UserID, &n.CageID, &n.Type, &n.Title, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
-					log.Printf("[ERROR] Error scanning notification: %v", err)
-					continue
-				}
-				notifications = append(notifications, map[string]interface{}{
-					"id":        n.ID,
-					"title":     n.Title,
-					"timestamp": n.CreatedAt.Unix(),
-					"type":      n.Type,
-					"read":      n.IsRead,
-				})
-			}
-			if err := rows.Err(); err != nil {
-				log.Printf("[ERROR] Error iterating notifications: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process notifications"})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"notifications": notifications,
-			})
+			go client.WritePump()
+			go client.ReadPump(wsHub)
 		})
 
 		r.PATCH("/notifications/:notiID/read", func(c *gin.Context) {
@@ -741,176 +974,55 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB, wsHub *websocket.Hub, mqttC
 	}
 }
 
-func monitorSensors(db *sql.DB, wsHub *websocket.Hub) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	lastNotified := make(map[string]time.Time)
-
-	for range ticker.C {
-		rows, err := db.QueryContext(context.Background(), `
-            SELECT ar.id, ar.sensor_id, ar.device_id, ar.condition, ar.threshold, ar.action,
-                   s.cage_id, s.type AS sensor_type, d.name AS device_name, c.user_id
-            FROM automation_rules ar
-            JOIN sensors s ON ar.sensor_id = s.id
-            JOIN devices d ON ar.device_id = d.id
-            JOIN cages c ON s.cage_id = c.id
-        `)
-		if err != nil {
-			log.Printf("[ERROR] Error querying automation rules: %v", err)
-			continue
-		}
-
-		type ruleInfo struct {
-			RuleID     string
-			SensorID   string
-			DeviceID   string
-			Condition  string
-			Threshold  float64
-			Action     string
-			CageID     string
-			SensorType string
-			DeviceName string
-			UserID     string
-		}
-
-		var rules []ruleInfo
-		for rows.Next() {
-			var r ruleInfo
-			if err := rows.Scan(&r.RuleID, &r.SensorID, &r.DeviceID, &r.Condition, &r.Threshold, &r.Action,
-				&r.CageID, &r.SensorType, &r.DeviceName, &r.UserID); err != nil {
-				log.Printf("[ERROR] Error scanning automation rule: %v", err)
-				continue
-			}
-			rules = append(rules, r)
-		}
-		rows.Close()
-
-		for _, rule := range rules {
-			var value float64
-			var createdAt time.Time
-			err := db.QueryRowContext(context.Background(), `
-                SELECT value, created_at
-                FROM sensors
-                WHERE id = $1
-                ORDER BY created_at DESC
-                LIMIT 1
-            `, rule.SensorID).Scan(&value, &createdAt)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					log.Printf("[INFO] No data for sensor %s", rule.SensorID)
-				} else {
-					log.Printf("[ERROR] Error querying sensor %s: %v", rule.SensorID, err)
-				}
-				continue
-			}
-
-			triggered := false
-			switch rule.Condition {
-			case ">":
-				if value > rule.Threshold {
-					triggered = true
-				}
-			case "<":
-				if value < rule.Threshold {
-					triggered = true
-				}
-			case "=":
-				if value == rule.Threshold {
-					triggered = true
-				}
-			}
-
-			if triggered {
-				notificationKey := fmt.Sprintf("%s-%s", rule.SensorID, rule.RuleID)
-				lastNotificationTime, exists := lastNotified[notificationKey]
-				if exists && time.Since(lastNotificationTime) < 5*time.Minute {
-					continue
-				}
-
-				actionVerb := ""
-				switch rule.Action {
-				case "turn_on":
-					actionVerb = "bật"
-				case "turn_off":
-					actionVerb = "tắt"
-				}
-				title := fmt.Sprintf("Cage %s: Sensor alert triggered", rule.CageID)
-				message := fmt.Sprintf("%s %.1f%s vượt ngưỡng %.1f%s: Hãy %s %s",
-					rule.SensorType, value, rule.Threshold, actionVerb, rule.DeviceName)
-
-				wsHub.Broadcast <- websocket.Message{
-					UserID:  rule.UserID,
-					Type:    "warning",
-					Title:   title,
-					Message: message,
-					CageID:  rule.CageID,
-					Time:    time.Now().Unix(),
-					Value:   value,
-				}
-
-				_, err = db.ExecContext(context.Background(), `
-                    INSERT INTO notifications (id, user_id, cage_id, type, title, message, is_read, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                `, uuid.New().String(), rule.UserID, rule.CageID, "warning", title, message, false, time.Now())
-				if err != nil {
-					log.Printf("[ERROR] Error storing notification: %v", err)
-				}
-
-				lastNotified[notificationKey] = time.Now()
-				log.Printf("[INFO] Sent sensor alert for cage %s: %s", rule.CageID, message)
-			}
-		}
-	}
-}
-
 type ownershipChecker interface {
 	IsOwnedByUser(ctx context.Context, userID, entityID string) (bool, error)
 	IsExistsID(ctx context.Context, entityID string) (bool, error)
 }
 
-func ownershipMiddleware(repo ownershipChecker, paramName string) gin.HandlerFunc {
+// Helper function to check if a slice contains a string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// In user_route.go or wherever ownershipMiddleware is defined
+func ownershipMiddleware(checker ownershipChecker, resourceIDParam string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		resourceID := c.Param(resourceIDParam)
+
+		// Check if the resource exists
+		exists, err := checker.IsExistsID(c.Request.Context(), resourceID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			c.Abort()
+			return
+		}
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Resource not found"})
+			c.Abort()
+			return
+		}
+
+		// Get the user ID from the context (set by authentication middleware)
 		userID, exists := c.Get("user_id")
 		if !exists {
-			log.Println("[ERROR] Missing userID in context")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
 
-		entityID := c.Param(paramName)
-		if err := service.IsValidUUID(entityID); err != nil {
-			log.Printf("[ERROR] Invalid UUID format for %s: %s", paramName, entityID)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-			c.Abort()
-			return
-		}
-
-		entityExists, err := repo.IsExistsID(c.Request.Context(), entityID)
+		// Check if the user owns the resource
+		owned, err := checker.IsOwnedByUser(c.Request.Context(), resourceID, userID.(string))
 		if err != nil {
-			log.Printf("[ERROR] Error checking existence of %s: %v", paramName, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
 			c.Abort()
 			return
 		}
-		if !entityExists {
-			log.Printf("[ERROR] %s not found: %s", paramName, entityID)
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("%s not found", paramName)})
-			c.Abort()
-			return
-		}
-
-		owned, err := repo.IsOwnedByUser(c.Request.Context(), userID.(string), entityID)
-		if err != nil {
-			log.Printf("[ERROR] Error checking ownership of %s %s: %v", paramName, entityID, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
-			c.Abort()
-			return
-		}
-
 		if !owned {
-			log.Printf("[ERROR] Unauthorized access: User %s does not own %s %s", userID.(string), paramName, entityID)
 			c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
 			c.Abort()
 			return

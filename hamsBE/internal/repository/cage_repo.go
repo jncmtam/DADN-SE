@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
@@ -15,7 +16,20 @@ type CageRepository struct{
 func NewCageRepository(db *sql.DB) *CageRepository {
 	return &CageRepository{db: db}
 }
-
+func (r *CageRepository) IsOwnedByUser(ctx context.Context, cageID, userID string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 
+			FROM cages 
+			WHERE id = $1 AND user_id = $2
+		)
+	`, cageID, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check ownership of cage %s: %v", cageID, err)
+	}
+	return exists, nil
+}
 func (r *CageRepository) CreateACageForID(ctx context.Context, nameCage string, userID string) (*model.Cage, error) {
 	query, err := queries.GetQuery("create_cage")
 	if err != nil {
@@ -34,28 +48,25 @@ func (r *CageRepository) CreateACageForID(ctx context.Context, nameCage string, 
 
 
 func (r *CageRepository) GetCagesByID(ctx context.Context, userID string) ([]*model.CageResponse, error) {
-	query, err := queries.GetQuery("get_cages_by_user_id")
-	if err != nil {
-		return nil, err
-	}
+    rows, err := r.db.QueryContext(ctx, `
+        SELECT id, name, num_device, num_sensor, status 
+        FROM cages 
+        WHERE user_id = $1
+    `, userID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
 
-	rows, err := r.db.QueryContext(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var cages []*model.CageResponse
-	for rows.Next() {
-		cage := &model.CageResponse{}
-		if err := rows.Scan(&cage.ID, &cage.Name, &cage.NumDevice, &cage.Status,
-			&cage.CreatedAt, &cage.UpdatedAt); err != nil {
-			return nil, err
-		}
-		cages = append(cages, cage)
-	}
-
-	return cages, nil
+    var cages []*model.CageResponse
+    for rows.Next() {
+        cage := &model.CageResponse{}
+        if err := rows.Scan(&cage.ID, &cage.Name, &cage.NumDevice, &cage.NumSensor, &cage.Status); err != nil {
+            return nil, err
+        }
+        cages = append(cages, cage)
+    }
+    return cages, nil
 }
 
 
@@ -85,16 +96,6 @@ func (r *CageRepository) GetACageByID(ctx context.Context, cageID string) (*mode
 	}
 
 	return cage, nil
-}
-
-func (r *CageRepository) IsOwnedByUser(ctx context.Context, userID, cageID string) (bool, error) {
-	query, err := queries.GetQuery("is_owned_by_user_cage")
-	if err != nil {
-		return false, err
-	}
-	var exists bool
-	err = r.db.QueryRowContext(ctx, query, cageID, userID).Scan(&exists)
-	return exists, err
 }
 
 func (r *CageRepository) CageExists(ctx context.Context, cageID string) (bool, error) {
