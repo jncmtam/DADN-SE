@@ -28,3 +28,21 @@ WHERE automation_rules.id = $1 AND cages.user_id = $2;
 
 -- name: check_automation_rule_exists
 SELECT EXISTS(SELECT 1 FROM automation_rules WHERE id = $1);
+
+-- name: get_automation_rules_by_sensorID
+SELECT 
+    ar.id, 
+    ar.sensor_id, 
+    s.type AS sensor_type,
+    ar.condition, 
+    ar.threshold, 
+    s.unit, 
+    ar.action,
+    d.cage_id,   
+    c.user_id,   
+    d.type AS device_type 
+FROM automation_rules ar
+JOIN sensors s ON ar.sensor_id = s.id
+JOIN devices d ON ar.device_id = d.id   
+JOIN cages c ON d.cage_id = c.id   
+WHERE ar.sensor_id = $1;

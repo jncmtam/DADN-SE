@@ -22,3 +22,4 @@ type AutoRuleResByDeviceID struct {
 	Unit       string    `json:"unit"`
 	Action     string    `json:"action"`
 }
+

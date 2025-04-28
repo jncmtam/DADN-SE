@@ -24,3 +24,8 @@ UPDATE sensors SET cage_id = $1 WHERE id = $2;
 
 -- name: get_sensors_assignable
 SELECT id, name FROM sensors WHERE cage_id IS NULL;
+
+-- name: get_sensors_values_by_cage
+SELECT id, value, type
+FROM sensors
+WHERE cage_id = $1;
