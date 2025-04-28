@@ -446,10 +446,10 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 		
-			log.Printf("[INFO] Device unassigned successfully: %s", deviceID)
+			log.Printf("[INFO] Device removed from cage successfully: %s", deviceID)
 		
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Device unassigned successfully",
+				"message": "Device removed from cage successfully",
 			})
 		})
 		

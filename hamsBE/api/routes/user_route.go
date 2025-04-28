@@ -10,6 +10,7 @@ import (
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
+	ws "hamstercare/internal/websocket"
 	"strings"
 	"time"
 
@@ -36,6 +37,51 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 
 	sensorRepo := repository.NewSensorRepository(db)
 	sensorService := service.NewSensorService(sensorRepo, cageRepo, automationRepo)
+
+	// WebSocket để nhận dữ liệu cảm biến của cage
+	r.GET("/user/cages/:cageID/sensors-data", func(c *gin.Context) {
+		cageID := c.Param("cageID")
+		token := c.Query("token")
+
+		if token == "" {
+			log.Printf("[ERROR] Missing token")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization token is required"})
+			return
+		}
+
+		claims, err := middleware.VerifyToken(token)
+		if err != nil {
+			log.Printf("[ERROR] Invalid token: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+
+		entityExists, err := cageRepo.IsExistsID(c.Request.Context(), cageID)
+		if err != nil {
+			log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		if !entityExists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+			return
+		}
+
+		owned, err := cageRepo.IsOwnedByUser(c.Request.Context(), claims.UserID, cageID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		if !owned {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+			return
+		}
+
+		if err := ws.StreamSensorData(sensorRepo, cageID, c.Writer, c.Request); err != nil {
+			log.Printf("[ERROR] %v", err)
+		}
+	})
+
 
 	//user := r.Group("/user")
 	r.Use(middleware.JWTMiddleware())
