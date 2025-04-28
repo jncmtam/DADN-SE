@@ -205,3 +205,32 @@ func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID 
 
 	return count, nil
 }
+
+
+func (r *DeviceRepository) UpdateDeviceMode(ctx context.Context, deviceID, mode string) error {
+	query, err := queries.GetQuery("update_device_mode") 
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, mode, deviceID)
+	if err != nil {
+		return errors.New("failed to update device mode: " + err.Error())
+	}
+
+	return nil
+}
+
+func (r *DeviceRepository) UpdateDeviceName(ctx context.Context, deviceID, newNameDevice string) error {
+	query, err := queries.GetQuery("update_device_name") 
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, newNameDevice, deviceID)
+	if err != nil {
+		return errors.New("failed to update device name: " + err.Error())
+	}
+
+	return nil
+}

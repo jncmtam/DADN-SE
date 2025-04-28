@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"hamstercare/internal/model"
+	//"hamstercare/internal/mqtt"
 	"hamstercare/internal/repository"
+	"log"
+	"os"
 )
 
 type DeviceService struct {
@@ -164,4 +167,69 @@ func (s *DeviceService) AssignDeviceToCage(ctx context.Context, deviceID, cageID
 
 func (s *DeviceService) CountActiveDevicesByUserID(ctx context.Context, userID string) (int, error) {
 	return s.DeviceRepo.CountActiveDevicesByUser(ctx, userID)
+}
+
+func (s *DeviceService) UpdateDeviceMode(ctx context.Context, deviceID, status string) error {
+	// Kiểm tra trạng thái hợp lệ
+	validModes := []string{"on", "off", "auto"}
+	modeValid := false
+	for _, validMode := range validModes {
+		if status == validMode {
+			modeValid = true
+			break
+		}
+	}
+
+	if !modeValid {
+		return errors.New("invalid mode value")
+	}
+
+	// Lấy thông tin thiết bị từ repository
+	device, err := s.DeviceRepo.GetDeviceByID(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	if device == nil {
+		return errors.New("device not found")
+	}
+
+	// Cập nhật trạng thái thiết bị
+	err = s.DeviceRepo.UpdateDeviceMode(ctx, deviceID, status)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *DeviceService) UpdateDeviceName(ctx context.Context, deviceID, newNameDevice string) error {
+	// Kiểm tra tên tốn tại
+
+	err := s.DeviceRepo.UpdateDeviceName(ctx, deviceID, newNameDevice)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+
+func HandleDeviceAction(userID, cageID, deviceID, deviceType string, action int) error {
+	log.Printf("[INFO] Handling %s device action %d ", deviceID, action)
+	broker := os.Getenv("MQTT_BROKER")
+    if broker == "" {
+        return fmt.Errorf("MQTT_BROKER environment variable is not set")
+    }
+	// switch deviceType {
+	// case "fan":
+	// 	mqtt.StartMQTTClientPub(broker, "hamster/user1/cage1/device/6/fan", action, "device", 6, "fan")
+	// case "light":
+	// 	mqtt.StartMQTTClientPub(broker, "hamster/user1/cage1/device/7/led", action, "device", 7, "led")
+	// case "pump":
+	// 	mqtt.StartMQTTClientPub(broker, "hamster/user1/cage1/device/8/pump", action, "device", 8, "pump")
+	// default:
+	// 	return fmt.Errorf("unknown device type: %s", deviceType)
+	// }
+	return nil
 }

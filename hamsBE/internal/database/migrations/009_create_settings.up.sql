@@ -67,3 +67,23 @@ VALUES
 ('led', 'light', 'off', NULL),
 ('pump', 'pump', 'off', '7c2b9e6e-ff2d-4c92-8b8c-2d1f2e0d6c00'),
 ('fan', 'fan', 'off', '7c2b9e6e-ff2d-4c92-8b8c-2d1f2e0d6c00');
+
+CREATE OR REPLACE FUNCTION notify_sensor_update() RETURNS trigger AS $$
+DECLARE
+BEGIN
+  PERFORM pg_notify('sensor_updates', 
+    json_build_object(
+      'sensor_id', NEW.id,
+      'value', NEW.value,
+      'type', NEW.type
+    )::text
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER sensor_update_trigger
+AFTER UPDATE ON sensors
+FOR EACH ROW
+WHEN (OLD.value IS DISTINCT FROM NEW.value)
+EXECUTE FUNCTION notify_sensor_update();

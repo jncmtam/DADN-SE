@@ -45,4 +45,4 @@ FROM automation_rules ar
 JOIN sensors s ON ar.sensor_id = s.id
 JOIN devices d ON ar.device_id = d.id   
 JOIN cages c ON d.cage_id = c.id   
-WHERE ar.sensor_id = $1;
+WHERE ar.sensor_id = $1 AND d.mode = 'auto';

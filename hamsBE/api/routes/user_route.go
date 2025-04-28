@@ -10,6 +10,7 @@ import (
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
+	"strings"
 	"time"
 
 	"log"
@@ -392,6 +393,107 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				"message": "Schedule rule deleted successfully",
 			})
 		})
+
+		// Set device status
+		r.PUT("/devices/:deviceID/status", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+		
+			var req struct {
+				Status string `json:"status"` // on/off/auto
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+			if strings.TrimSpace(req.Status) == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Status is required"})
+				return
+			}
+		
+			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
+			if err != nil {
+				log.Printf("[ERROR] Fetching device %s: %v", deviceID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch device"})
+				return
+			}
+		
+			// (Temporary) You should fetch userID, cageID properly instead of hardcode
+			userID := "user1"
+			cageID := "cage1"
+		
+			var action int
+			switch req.Status {
+			case "on":
+				action = 1
+			case "off", "auto":
+				action = 0
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+				return
+			}
+		
+			if err := service.HandleDeviceAction(userID, cageID, device.ID, device.Type, action); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to handle device action"})
+				return
+			}
+		
+			if device.Type == "pump" && req.Status == "on" {
+				go func(userID, cageID, deviceID, deviceType string) {
+					time.Sleep(5 * time.Second)
+					if err := service.HandleDeviceAction(userID, cageID, deviceID, deviceType, 0); err != nil {
+						log.Printf("[ERROR] Failed to auto-turn off pump %s: %v", deviceID, err)
+					} else {
+						log.Printf("[DEBUG] Pump %s auto-turned off after 5 seconds", deviceID)
+					}
+				}(userID, cageID, device.ID, device.Type)
+			}
+		
+			if err := deviceService.UpdateDeviceMode(c.Request.Context(), deviceID, req.Status); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device status"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"message": "Device status updated successfully"})
+		})
+		
+		// Update device name
+		r.PUT("/devices/:deviceID/name", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+		
+			var req struct {
+				Name string `json:"name"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+			if strings.TrimSpace(req.Name) == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
+				return
+			}
+		
+			// Check duplicate name
+			exists, err := deviceService.IsDeviceNameExists(c.Request.Context(), req.Name)
+			if err != nil {
+				log.Printf("[ERROR] Failed to check device name uniqueness: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			if exists {
+				log.Printf("[ERROR] Device name already exists: %s", req.Name)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Device name already exists"})
+				return
+			}
+		
+			if err := deviceService.UpdateDeviceName(c.Request.Context(), deviceID, req.Name); err != nil {
+				log.Printf("[ERROR] Failed to update device name: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device name"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"message": "Device name updated successfully"})
+		})
+		
 
 	}
 }

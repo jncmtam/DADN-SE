@@ -44,9 +44,9 @@ WHERE c.user_id = $1 AND d.status IN ('on', 'auto');
 -- name: get_devices_assignable
 SELECT id, name FROM devices WHERE cage_id IS NULL;
 
--- name: update_device_status
+-- name: update_device_mode
 UPDATE devices
-SET status = $1
+SET mode = $1
 WHERE id = $2;
 
 -- name: update_device_name
