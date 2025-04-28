@@ -25,18 +25,17 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
-
-	sensorRepo := repository.NewSensorRepository(db)
-	sensorService := service.NewSensorService(sensorRepo, cageRepo)
-
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
 
 	scheduleRepo := repository.NewScheduleRepository(db)
 	scheduleService := service.NewScheduleService(scheduleRepo)
 
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationRepo)
+
+	sensorRepo := repository.NewSensorRepository(db)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo, automationRepo)
 
 	//user := r.Group("/user")
 	r.Use(middleware.JWTMiddleware())

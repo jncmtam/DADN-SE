@@ -42,6 +42,26 @@ func (r *AutomationRepository) DeleteAutomationRule(ctx context.Context, ruleID 
 	return err
 }
 
+func (r *AutomationRepository) DeleteRulesByDeviceID(ctx context.Context, deviceID string) error {
+	query, err := queries.GetQuery("delete_automation_rules_by_device")
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, deviceID)
+	return err
+}
+
+func (r *AutomationRepository) DeleteRulesBySensorID(ctx context.Context, deviceID string) error {
+	query, err := queries.GetQuery("delete_automation_rules_by_sensor")
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, deviceID)
+	return err
+}
+
 
 func (r *AutomationRepository) GetAutomationRulesByDeviceID(ctx context.Context, deviceID string) ([]*model.AutoRuleResByDeviceID, error) {
 	query, err := queries.GetQuery("get_automation_rules_by_deviceID")

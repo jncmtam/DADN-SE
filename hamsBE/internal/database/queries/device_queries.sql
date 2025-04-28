@@ -35,6 +35,9 @@ SELECT EXISTS (
 -- name: assign_device_to_cage
 UPDATE devices SET cage_id = $1 WHERE id = $2;
 
+-- name: unassign_device_owner
+UPDATE devices SET cage_id = NULL, status = 'off', last_mode =  'off', mode = 'off' WHERE id = $1;
+
 -- name: count_active_devices_by_user
 SELECT COUNT(*)
 FROM devices d

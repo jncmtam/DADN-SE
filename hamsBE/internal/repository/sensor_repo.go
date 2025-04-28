@@ -187,3 +187,24 @@ func (r *SensorRepository) GetSensorsValuesByCage(ctx context.Context, cageID st
 
 	return sensorValues, nil
 }
+
+func (r *SensorRepository) UnassignOwner(ctx context.Context, sensorID string) error {
+	query, err := queries.GetQuery("unassign_sensor_owner") 
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.ExecContext(ctx, query, sensorID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("sensor not found")
+	}
+	return nil
+}

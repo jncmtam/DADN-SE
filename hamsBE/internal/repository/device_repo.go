@@ -191,6 +191,29 @@ func (r *DeviceRepository) AssignToCage(ctx context.Context, deviceID, cageID st
 	return nil
 }
 
+func (r *DeviceRepository) UnassignOwner(ctx context.Context, deviceID string) error {
+	query, err := queries.GetQuery("unassign_device_owner") // file .sql bạn mới tạo
+	if err != nil {
+		return err
+	}
+
+	// Vì query vẫn cần 2 tham số, nên truyền nil vào vị trí cageID
+	result, err := r.db.ExecContext(ctx, query, deviceID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("device not found")
+	}
+	return nil
+}
+
+
 func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID string) (int, error) {
 	query, err := queries.GetQuery("count_active_devices_by_user")
 	if err != nil {

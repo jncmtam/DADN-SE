@@ -14,10 +14,11 @@ import (
 type DeviceService struct {
 	DeviceRepo *repository.DeviceRepository
 	CageRepo *repository.CageRepository
+	AutomationRepo *repository.AutomationRepository
 }
 
-func NewDeviceService(deviceRepo *repository.DeviceRepository, CageRepo *repository.CageRepository) *DeviceService {
-	return &DeviceService{DeviceRepo: deviceRepo, CageRepo: CageRepo}
+func NewDeviceService(deviceRepo *repository.DeviceRepository, CageRepo *repository.CageRepository, AutomationRepo *repository.AutomationRepository) *DeviceService {
+	return &DeviceService{DeviceRepo: deviceRepo, CageRepo: CageRepo, AutomationRepo: AutomationRepo}
 }
 
 func (s *DeviceService) CreateDevice(ctx context.Context, name, deviceType, cageID string) (*model.Device, error) {
@@ -92,7 +93,7 @@ func (s *DeviceService) GetDevicesAssignable(ctx context.Context) ([]*model.Devi
 	return devices, nil
 }
 
-func (s *DeviceService) DeleteDevice(ctx context.Context, deviceID string) error {
+func (s *DeviceService) UnassignDevice(ctx context.Context, deviceID string) error {
 	if deviceID == "" {
 		return errors.New("deviceID is required")
 	}
@@ -109,7 +110,13 @@ func (s *DeviceService) DeleteDevice(ctx context.Context, deviceID string) error
 		return fmt.Errorf("%w: device with ID %s does not exist", ErrDeviceNotFound, deviceID)
 	}
 
-	return s.DeviceRepo.DeleteDeviceByID(ctx, deviceID)
+	// xóa các automation_rulle có deviceID đó 
+	err = s.AutomationRepo.DeleteRulesByDeviceID(ctx, deviceID)
+	if err != nil {
+		return fmt.Errorf("error delete automation rules of device: %w", err)
+	}
+
+	return s.DeviceRepo.UnassignOwner(ctx, deviceID)
 }
 
 func (s *DeviceService) ValidateDeviceAction(ctx context.Context, deviceID, action string) error {

@@ -29,3 +29,6 @@ SELECT id, name FROM sensors WHERE cage_id IS NULL;
 SELECT id, value, type
 FROM sensors
 WHERE cage_id = $1;
+
+-- name: unassign_sensor_owner
+UPDATE sensors SET cage_id = NULL, value = 0 WHERE id = $1;

@@ -46,3 +46,9 @@ JOIN sensors s ON ar.sensor_id = s.id
 JOIN devices d ON ar.device_id = d.id   
 JOIN cages c ON d.cage_id = c.id   
 WHERE ar.sensor_id = $1 AND d.mode = 'auto';
+
+-- name: delete_automation_rules_by_device
+DELETE FROM automation_rules WHERE device_id = $1;
+
+-- name: delete_automation_rules_by_sensor
+DELETE FROM automation_rules WHERE sensor_id = $1;
