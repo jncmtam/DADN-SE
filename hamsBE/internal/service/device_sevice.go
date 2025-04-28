@@ -191,7 +191,6 @@ func (s *DeviceService) UpdateDeviceMode(ctx context.Context, deviceID, status s
 		return errors.New("invalid mode value")
 	}
 
-	// Lấy thông tin thiết bị từ repository
 	device, err := s.DeviceRepo.GetDeviceByID(ctx, deviceID)
 	if err != nil {
 		return err
@@ -219,6 +218,96 @@ func (s *DeviceService) UpdateDeviceName(ctx context.Context, deviceID, newNameD
 
 	return nil
 }
+
+func (s *DeviceService) TurnOffDevicesInCage(ctx context.Context, cageID string) error {
+    // Lấy danh sách thiết bị trong cage
+    devices, err := s.DeviceRepo.GetDevicesByCageID(ctx, cageID)
+    if err != nil {
+        return fmt.Errorf("failed to fetch devices for cage %s: %w", cageID, err)
+    }
+
+    // Xử lý tắt (off) tất cả thiết bị
+    for _, device := range devices {
+        // Lưu trạng thái chế độ cuối cùng của thiết bị
+        err := s.saveLastModeBeforeOff(ctx, device)
+        if err != nil {
+            return fmt.Errorf("failed to save last mode for device %s: %w", device.ID, err)
+        }
+
+		if device.Mode == "off" {
+			continue
+		}
+
+        // Tắt thiết bị
+        err = HandleDeviceAction("user1", cageID, device.ID, device.Type, 0) // action 0 = off
+        if err != nil {
+            return fmt.Errorf("failed to turn off device %s: %w", device.ID, err)
+        }
+
+        // Cập nhật trạng thái "off" cho thiết bị
+        err = s.UpdateDeviceMode(ctx, device.ID, "off")
+        if err != nil {
+            return fmt.Errorf("failed to update device mode for device %s: %w", device.ID, err)
+        }
+    }
+
+    return nil
+}
+
+func (s *DeviceService) RestoreDevicesInCage(ctx context.Context, cageID string) error {
+    // Lấy danh sách thiết bị trong cage
+    devices, err := s.DeviceRepo.GetDevicesByCageID(ctx, cageID)
+    if err != nil {
+        return fmt.Errorf("failed to fetch devices for cage %s: %w", cageID, err)
+    }
+
+    for _, device := range devices {
+        switch device.LastMode {
+        case "off":
+            // Nếu last mode là off thì bỏ qua thiết bị này
+            continue
+
+        case "auto":
+            // Nếu last mode là auto -> chỉ update db, không gửi lệnh
+            err := s.UpdateDeviceMode(ctx, device.ID, "auto")
+            if err != nil {
+                log.Printf("[ERROR] Failed to update mode for device %s: %v", device.ID, err)
+            }
+            continue
+
+        case "on":
+            // Gửi lệnh bật thiết bị
+            err := HandleDeviceAction("user1", cageID, device.ID, device.Type, 1) // action 1 = on
+            if err != nil {
+                log.Printf("[ERROR] Failed to restore device %s: %v", device.ID, err)
+                continue // Skip lỗi thiết bị này
+            }
+
+            // Cập nhật lại mode
+            err = s.UpdateDeviceMode(ctx, device.ID, "on")
+            if err != nil {
+                log.Printf("[ERROR] Failed to update mode for device %s: %v", device.ID, err)
+            }
+
+        default:
+            log.Printf("[WARN] Unknown lastMode for device %s: %s", device.ID, device.LastMode)
+            continue
+        }
+    }
+
+    return nil
+}
+
+
+
+func (s *DeviceService) saveLastModeBeforeOff(ctx context.Context, device *model.DeviceResponse) error {
+    err := s.DeviceRepo.SaveLastMode(ctx, device.ID, device.Mode)
+    if err != nil {
+        return fmt.Errorf("failed to save last mode for device %s: %w", device.ID, err)
+    }
+    return nil
+}
+
 
 
 

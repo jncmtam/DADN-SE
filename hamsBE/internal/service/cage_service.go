@@ -148,6 +148,26 @@ func (s *CageService) IsCageNameExists(ctx context.Context, userID, name string)
 }
 
 
+func (s *CageService) UpdateCageStatus(ctx context.Context, cageID string, status string) error {
+	if cageID == "" {
+		return errors.New("cageID is required")
+	}
+
+	if err := IsValidUUID(cageID); err != nil {
+		return fmt.Errorf("%w: invalid cageID format", ErrInvalidUUID)
+	}
+
+	if status != "active" && status != "inactive" {
+		return fmt.Errorf("invalid status value: %s", status)
+	}
+
+	err := s.CageRepo.UpdateStatus(ctx, cageID, status)
+	if err != nil {
+		return fmt.Errorf("failed to update cage status: %w", err)
+	}
+
+	return nil
+}
 
 
 // ErrInvalidUUID là lỗi chung khi ID không đúng định dạng UUID

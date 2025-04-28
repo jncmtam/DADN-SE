@@ -299,7 +299,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		admin.POST("/sensors", func(c *gin.Context) {
 			var req struct {
 				Name string `json:"name" binding:"required"`
-				Type string `json:"type" binding:"required,oneof=temperature humidity light distance"`
+				Type string `json:"type" binding:"required,oneof=temperature humidity light water"`
 				CageID string `json:"cageID"` // cageID có thể null
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
@@ -330,8 +330,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				unit = "%"
 			case "light":
 				unit = "lux"
-			case "distance":
-				unit = "%"	
+			case "water":
+				unit = "mm"	
 			default:
 				unit = "unknown"
 			}
@@ -522,7 +522,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				deviceMap := map[string]interface{}{
 					"id":     device.ID,
 					"name":   device.Name,
-					"status": device.Status,
+					"status": device.Mode,
 				}
 				devicesRes = append(devicesRes, deviceMap)
 			}

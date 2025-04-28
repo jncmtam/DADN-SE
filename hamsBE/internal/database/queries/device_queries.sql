@@ -4,12 +4,12 @@ VALUES ($1, $2, $3)
 RETURNING id, name;
 
 -- name: get_devices_by_cageID
-SELECT id, name, status, type
+SELECT id, name, type, status, mode, last_mode
 FROM devices
 WHERE cage_id = $1;
 
 -- name: get_device_by_deviceID
-SELECT id, name, status, type
+SELECT id, name, status, mode
 FROM devices
 WHERE id = $1;
 
@@ -55,4 +55,9 @@ WHERE id = $2;
 -- name: update_device_name
 UPDATE devices
 SET name = $1
+WHERE id = $2;
+
+-- name: update_device_last_mode
+UPDATE devices
+SET last_mode = $1
 WHERE id = $2;

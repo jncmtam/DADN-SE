@@ -39,6 +39,11 @@ func (r *SensorRepository) GetSensorsByCageID(ctx context.Context, cageID string
         ); err != nil {
             return nil, err
         }
+
+		if sensor.Type == "water" {
+			sensor.Unit = "%"
+		}
+
         sensors = append(sensors, sensor)
     }
     return sensors, nil

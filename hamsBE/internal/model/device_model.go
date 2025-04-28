@@ -18,6 +18,10 @@ type DeviceResponse struct{
 	Name 		string 		`json:"name"`
 	Status 		string 		`json:"status"`
 	Type		string		`json:"type"`
+	LastMode 	string 		`json:"last_mode"`
+	Mode		string 		`json:"mode"`
+	CageID 		bool 		`json:"cage_id"`
+	UserID      string    	`json:"user_id"`
 }
 
 type DeviceListResponse struct {

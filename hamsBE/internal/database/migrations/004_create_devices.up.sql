@@ -18,7 +18,7 @@ CREATE TABLE devices (
     type device_type NOT NULL,
     status device_status DEFAULT 'off' NOT NULL,
     mode device_mod DEFAULT 'off' NOT NULL,
-    last_mode device_mod,
+    last_mode device_mod DEFAULT 'off' NOT NULL,
     cage_id UUID,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

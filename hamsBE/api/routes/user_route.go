@@ -155,7 +155,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				deviceMap := map[string]interface{}{
 					"id":     device.ID,
 					"name":   device.Name,
-					"status": device.Status,
+					"status": device.Mode,
 				}
 		
 				if device.Type == "pump" {
@@ -209,7 +209,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
 				"name": device.Name,
-				"status": device.Status,
+				"status": device.Mode,
 				"action_type": action_type,
 				"automation_rule": automationRules,
 				"schedule_rule": scheduleRules,
@@ -416,35 +416,9 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				return
 			}
 		
-			// (Temporary) You should fetch userID, cageID properly instead of hardcode
-			userID := "user1"
-			cageID := "cage1"
-		
-			var action int
-			switch req.Status {
-			case "on":
-				action = 1
-			case "off", "auto":
-				action = 0
-			default:
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+			if err := handleDeviceAction(req.Status, device); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
-			}
-		
-			if err := service.HandleDeviceAction(userID, cageID, device.ID, device.Type, action); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to handle device action"})
-				return
-			}
-		
-			if device.Type == "pump" && req.Status == "on" {
-				go func(userID, cageID, deviceID, deviceType string) {
-					time.Sleep(5 * time.Second)
-					if err := service.HandleDeviceAction(userID, cageID, deviceID, deviceType, 0); err != nil {
-						log.Printf("[ERROR] Failed to auto-turn off pump %s: %v", deviceID, err)
-					} else {
-						log.Printf("[DEBUG] Pump %s auto-turned off after 5 seconds", deviceID)
-					}
-				}(userID, cageID, device.ID, device.Type)
 			}
 		
 			if err := deviceService.UpdateDeviceMode(c.Request.Context(), deviceID, req.Status); err != nil {
@@ -493,12 +467,82 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{"message": "Device name updated successfully"})
 		})
 		
-
+		// Set cages status
+		r.PUT("/cages/:cageID/status", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			cageID := c.Param("cageID")
+		
+			var req struct {
+				Status string `json:"status"` // active/inactive
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+		
+			switch req.Status {
+			case "inactive":
+				// Tắt hết device trong cage
+				if err := deviceService.TurnOffDevicesInCage(c.Request.Context(), cageID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to turn off devices"})
+					return
+				}
+			case "active":
+				// Khôi phục trạng thái last mode của device
+				if err := deviceService.RestoreDevicesInCage(c.Request.Context(), cageID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore devices"})
+					return
+				}
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+				return
+			}
+		
+			// Update lại trạng thái cage
+			if err := cageService.UpdateCageStatus(c.Request.Context(), cageID, req.Status); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cage status"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"message": "Cage status updated successfully"})
+		})
+		
 	}
 }
 
 
+func handleDeviceAction(reqStatus string, device *model.DeviceResponse) error {
+    userID := "user1"
+    cageID := "cage1"
 
+    var action int
+    switch reqStatus {
+    case "on":
+        action = 1
+    case "off", "auto":
+        action = 0
+    default:
+        return fmt.Errorf("invalid status value")
+    }
+
+    // Xử lý hành động thiết bị
+    if err := service.HandleDeviceAction(userID, cageID, device.ID, device.Type, action); err != nil {
+        return fmt.Errorf("failed to handle device action: %w", err)
+    }
+
+    // Nếu là thiết bị "pump", tự động tắt sau 5 giây nếu trạng thái là "on"
+    if device.Type == "pump" && reqStatus == "on" {
+        go func(userID, cageID, deviceID, deviceType string) {
+            time.Sleep(5 * time.Second)
+            if err := service.HandleDeviceAction(userID, cageID, deviceID, deviceType, 0); err != nil {
+                log.Printf("[ERROR] Failed to auto-turn off pump %s: %v", deviceID, err)
+            } else {
+                log.Printf("[DEBUG] Pump %s auto-turned off after 5 seconds", deviceID)
+            }
+        }(userID, cageID, device.ID, device.Type)
+    }
+
+    return nil
+}
 
 // OwnershipChecker định nghĩa interface kiểm tra quyền sở hữu
 type ownershipChecker interface {

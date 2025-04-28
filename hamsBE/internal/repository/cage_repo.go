@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
@@ -136,4 +137,18 @@ func (r *CageRepository) DoesCageNameExist(ctx context.Context, userID string, n
 	var exists bool
 	err = r.db.QueryRowContext(ctx, query, userID, name).Scan(&exists)
 	return exists, err
+}
+
+func (r *CageRepository) UpdateStatus(ctx context.Context, cageID, status string) error {
+	query, err := queries.GetQuery("update_cage_status")
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, status, cageID)
+	if err != nil {
+		return errors.New("failed to update cage status: " + err.Error())
+	}
+
+	return nil
 }
