@@ -90,3 +90,44 @@ func (r *AutomationRepository) RuleExists(ctx context.Context, ruleID string) (b
 func (r *AutomationRepository) IsExistsID(ctx context.Context, ruleID string) (bool, error) {
 	return r.RuleExists(ctx, ruleID)
 }
+
+func (r *AutomationRepository) GetAutomationRulesBySensorID(ctx context.Context, sensorID string) ([]*model.AutoRuleResBySensorID, error) {
+    query, err := queries.GetQuery("get_automation_rules_by_sensorID")
+    if err != nil {
+        return nil, err
+    }
+
+	//log.Printf("[DEBUG] Executing query with sensorID: %s", sensorID)
+
+    rows, err := r.db.QueryContext(ctx, query, sensorID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var rules []*model.AutoRuleResBySensorID
+    for rows.Next() {
+        rule := &model.AutoRuleResBySensorID{}
+		//log.Printf("[DEBUG] Scanning row: %v", rows)
+		err := rows.Scan(
+			&rule.ID, 
+			&rule.SensorID, 
+			&rule.SensorType, 
+			&rule.Condition, 
+			&rule.Threshold, 
+			&rule.Unit, 
+			&rule.Action,
+			&rule.CageID,    
+			&rule.UserID,    
+			&rule.DeviceType, 
+		)
+		if err != nil {
+			//log.Printf("[ERROR] Error scanning row: %v", err)
+			return nil, err
+		}
+		//log.Printf("[DEBUG] Successfully scanned rule: %+v", rule)
+		
+        rules = append(rules, rule)
+    }
+    return rules, nil
+}
