@@ -16,7 +16,6 @@ Clone both the **Frontend** and **Backend** repositories to your local machine:
 
 ```bash
 git clone https://github.com/jncmtam/DADN-SE.git
-cd hamstercare
 ```
 
 ---
@@ -109,6 +108,18 @@ DB_PORT=5432
 DB_USER=hamster
 DB_PASSWORD=hamster
 DB_NAME=hamster
+
+JWT_SECRET_KEY=<your_jwt_secret_key>
+
+# Địa chỉ MQTT Broker server (ví dụ: 10.28.129.171:1883 hoặc mqtt.example.com:1883)
+MQTT_BROKER=<your_mqtt_broker_address>
+
+# Email dùng để gửi email notification và OTP
+EMAIL=<your_email_address>
+
+# API Key của SendGrid để gửi email
+SENDGRID_API_KEY=<your_sendgrid_api_key>
+
 
 ```
 
