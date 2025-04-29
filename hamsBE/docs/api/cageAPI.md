@@ -214,24 +214,19 @@
      }
      ```
 
-
-### 5. Remove A Device From Cage
+### 5. Delete A Device 
 - **Method**: `DELETE`
 - **URL**: `/admin/devices/:deviceID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
-  - `deviceID` (string, required): ID của thiết bị cần xóa khỏi cage.
-
-- **Description**:
-  - Endpoint này sẽ **xóa thiết bị khỏi cage** hiện tại mà không xóa thiết bị khỏi hệ thống.
-  - Thiết bị sẽ không còn liên kết với cage, nhưng vẫn còn tồn tại trong hệ thống.
+    - deviceID (string, required): ID của thiét bị cần xóa.
 
 - **Response**:
   - `200 OK`: 
     ```json
     {
-        "message": "Device removed from cage successfully"
+        "message": "Device deleted successfully"
     }
     ```
   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
@@ -269,7 +264,7 @@
   ```json
   {
     "name": "Sensor Name",
-    "type": "temperature", // temperature humidity light water
+    "type": "temperature", // temperature humidity light distance
     "cageID": "ff6ef8f2-0222-4b09-a52d-a8a3bec48a83" // có thể null
   }
   ```  
@@ -376,23 +371,19 @@
     }
     ```
 
-### 8. Remove A Sensor From Cage
+### 8. Delete A Sensor 
 - **Method**: `DELETE`
 - **URL**: `/admin/sensors/:sensorID`
 - **Headers**: 
   - `Authorization: Bearer <token>`
 - **Parameters**:
-  - `sensorID` (string, required): ID của cảm biến cần xóa khỏi cage.
-
-- **Description**:
-  - Endpoint này sẽ **xóa cảm biến khỏi cage** hiện tại mà không xóa cảm biến khỏi hệ thống.
-  - Cảm biến sẽ không còn liên kết với cage, nhưng vẫn còn tồn tại trong hệ thống.
+    - sensorID (string, required): ID của cảm biến cần xóa.
 
 - **Response**:
   - `200 OK`: 
     ```json
     {
-        "message": "Sensor removed from cage successfully"
+        "message": "Sensor deleted successfully"
     }
     ```
   - `401 Unauthorized`: Invalid token (miss token, expired, invalid)
@@ -436,7 +427,7 @@
           "id": "2a4666c4-df8f-41cf-b59f-3ca72c16019c",
           "name": "Cage 1",
           "num_device": 1,
-          "status": "active" //inactive
+          "status": "off"
       }
     ]
     ```
@@ -479,7 +470,7 @@
     {
         "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
         "name": "Cage 1",
-        "status": "active", // inactive
+        "status": "on", // off
         "devices": [
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
@@ -614,7 +605,7 @@
           "id": "2a4666c4-df8f-41cf-b59f-3ca72c16019c",
           "name": "Cage 1",
           "num_device": 1,
-          "status": "active" // inactive
+          "status": "off" // on
       }
     ]
     ```
@@ -646,7 +637,7 @@
     {
         "id": "2dab4c20-bf70-4d60-8d9f-d29dcb41cdc6",
         "name": "Cage 1",
-        "status": "active", // inactive
+        "status": "off", // on
         "devices": [
             {
                 "id": "243ef9e1-5cde-4aa8-8b69-e4ff304c88eb",
@@ -709,7 +700,7 @@
             {
                 "id": "c0c5b77b-2ba9-4292-b2ba-bd9cec11c394",
                 "sensor_id": "5ca7747f-2e0d-4eb5-9b62-3d17e9a77c2b", 
-                "sensor_type": "temperature", // humidity light water
+                "sensor_type": "temperature", // humidity light distance
                 "condition": ">", // > < =
                 "threshold": 30, // float
                 "unit": "oC", // % lux %
@@ -1020,288 +1011,5 @@
     ```json
     {
       "error": "Internal Server Error"
-    }
-    ```
-
-### 10. Set Device Status
-- **Method**: `PUT`
-- **URL**: `/devices/:deviceID/status`
-- **Headers**: 
-  - `Authorization: Bearer <token>`
-- **Parameters**:
-  - `deviceID` (string, required): ID của thiết bị cần cập nhật trạng thái.
-- **Request Body**:
-  ```json
-    {
-      "status": "on" // off auto
-    }
-  ```
-- **Response**:
-  - **200 OK**: 
-    ```json
-    {
-        "message": "Device status updated successfully"
-    }
-    ```
-  - **400 Bad Request**: Invalid request body or missing status
-    ```json
-    {
-        "error": "Invalid request body or Status is required"
-    }
-    ```
-  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
-    ```json
-    {
-        "error": "Invalid or expired token"
-    }
-    ```
-  - **403 Forbidden**: Permission denied (if the user does not have ownership of the device)
-    ```json
-    {
-      "error": "Permission denied"
-    }
-    ```
-  - **404 Not Found**: Device not found 
-    ```json
-    {
-      "error": "Device not found"
-    }
-    ```
-  - **500 Internal Server Error**: 
-    ```json
-    {
-        "error": "Failed to update device status"
-    }
-    ```
-
-
-### 11. Update Device Name
-- **Method**: `PUT`
-- **URL**: `/devices/:deviceID/name`
-- **Headers**: 
-  - `Authorization: Bearer <token>`
-- **Parameters**:
-  - `deviceID` (string, required): ID của thiết bị cần cập nhật tên.
-- **Request Body**:
-  ```json
-    {
-      "name": "new_name" // off auto
-    }
-  ```
-- **Response**:
-  - **200 OK**: 
-    ```json
-    {
-        "message": "Device name updated successfully"
-    }
-    ```
-  - **400 Bad Request**: Invalid request body or duplicate name
-    ```json
-    {
-        "error": "Invalid request body or Device name already exists"
-    }
-    ```
-  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
-    ```json
-    {
-        "error": "Invalid or expired token"
-    }
-    ```
-  - **403 Forbidden**: Permission denied (if the user does not have ownership of the device)
-    ```json
-    {
-      "error": "Permission denied"
-    }
-    ```
-  - **404 Not Found**: Device not found 
-    ```json
-    {
-      "error": "Device not found"
-    }
-    ```
-  - **500 Internal Server Error**: 
-    ```json
-    {
-        "error": "Failed to update device name"
-    }
-    ```
-
-### 12. Active/Inactive A Cage 
-- **Method**: `PUT`
-- **URL**: `/cages/:cageID/status`
-- **Headers**: 
-  - `Authorization: Bearer <token>`
-- **Parameters**:
-  - `cageID` (string, required): ID của cage cần cập nhật trạng thái.
-- **Request Body**:
-  ```json
-    {
-      "status": "active" // inactive
-    }
-  ```
-- **Response**:
-  - **200 OK**: 
-    ```json
-    {
-        "message": "Cage status updated successfully"
-    }
-    ```
-  - **400 Bad Request**: Invalid status value
-    ```json
-    {
-        "error": "Invalid status value"
-    }
-    ```
-  - **401 Unauthorized**: Invalid token (missing token, expired, invalid)
-    ```json
-    {
-        "error": "Invalid or expired token"
-    }
-    ```
-  - **403 Forbidden**: Permission denied
-    ```json
-    {
-        "error": "Permission denied"
-    }
-    ```
-  - **500 Internal Server Error**: 
-    ```json
-    {
-        "error": "Failed to update cage status"
-    }
-    ```
-
-### 13. WebSocket - Receive Sensor Data for a Cage
-- **Method**: `WebSocket`
-- **URL**: `ws://{{base_url}}/api/user/cages/:cageID/sensors-data?token=<token>`
-- **Parameters**:
-  - `cageID` (string, required): ID của cage cần nhận dữ liệu cảm biến.
-  - `token` (string, required): Token xác thực người dùng (được truyền dưới dạng query parameter).
-
-- **Response**:
-  - **101 Switching Protocols**: 
-    - Dữ liệu cảm biến sẽ được stream trực tiếp tới client qua kết nối WebSocket.
-    ```json
-      {
-          "18f09a51-7777-4fbd-a036-5a28973ef080": 166.67,
-          "ca8d27f8-ce9e-4198-9601-37cb9e0989d8": 28
-      }
-    ```
-  - **400 Bad Request**: 
-    - **Missing token**: 
-    ```json
-    {
-      "error": "Authorization token is required"
-    }
-    ```
-  - **401 Unauthorized**: 
-    - **Invalid token**: 
-    ```json
-    {
-      "error": "Invalid token"
-    }
-    ```
-  - **403 Forbidden**: 
-    - **Permission denied**: 
-    ```json
-    {
-      "error": "Permission denied"
-    }
-    ```
-  - **404 Not Found**: 
-    - **Cage not found**: 
-    ```json
-    {
-      "error": "Cage not found"
-    }
-    ```
-  - **500 Internal Server Error**: 
-    - **Internal Server Error**: 
-    ```json
-    {
-      "error": "Internal Server Error"
-    }
-    ```
-
-### 14. WebSocket - Receive Realtime Notifications
-- **Method**: `WebSocket`
-- **URL**: `ws://{{base_url}}/api/ws/notifications?token=<token>`
-
-- **Parameters**:
-  - `token` (string, required): Token xác thực người dùng (truyền dưới dạng query parameter).
-
-- **Description**:
-  - Thiết lập kết nối WebSocket để nhận **thông báo realtime** dành riêng cho người dùng đã xác thực.
-  - Token phải hợp lệ và chứa `userID` để server xác định người dùng tương ứng.
-  - Khi nhiệt độ > 35 oC, độ ẩm > 80 %, water < 20% => notification type warning được gửi lên (sau 20p sẽ thông báo lại nếu vẫn còn vượt ngưỡng)
-  - Khi thiết bị được bật/ tăt bởi chế độ auto => notification type info được gửi lên
-  - Khi thiết bị bị lỗi trong quá trình bật/tắt trong chế độ auto =>  notification type error được gửi lên
-
-- **Response**:
-  - **101 Switching Protocols**:
-    - Kết nối WebSocket thành công, server sẽ stream thông báo tới client theo thời gian thực.
-
-    ```json
-    {
-        "id": "b369b937-adbe-4e44-8bf7-e2a5de076a66",
-        "type": "warning",
-        "title": "temperature: High temperature detected",
-        "is_read": false,
-        "time": "2025-04-29T07:13:28.976942Z"
-    }
-    ```
-  - **400 Bad Request**:
-    - **Missing token**:
-    ```json
-    {
-      "error": "Authorization token is required"
-    }
-    ```
-
-  - **401 Unauthorized**:
-    - **Invalid token**:
-    ```json
-    {
-      "error": "Invalid token"
-    }
-    ```
-
-  - **401 Unauthorized**:
-    - **Invalid token claims (missing userID)**:
-    ```json
-    {
-      "error": "Invalid token claims"
-    }
-    ```
-
-  - **500 Internal Server Error**:
-    - **WebSocket stream error** (Lỗi trong quá trình stream dữ liệu):
-    ```json
-    {
-      "error": "Internal Server Error"
-    }
-    ```
-
-### GET /notifications
-Gets user notifications.
-
-- **Responses**:
-  - **200**: 
-    ```json
-    {
-      "notifications": [
-        {...}
-      ]
-    }
-    ```
-
-### PATCH /notifications/:notiID/read
-Marks notification as read.
-
-- **Responses**:
-  - **200**: 
-    ```json
-    {
-      "message": "Notification marked as read"
     }
     ```
