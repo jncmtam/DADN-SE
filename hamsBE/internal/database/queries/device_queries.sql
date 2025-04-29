@@ -42,7 +42,7 @@ UPDATE devices SET cage_id = NULL, status = 'off', last_mode =  'off', mode = 'o
 SELECT COUNT(*)
 FROM devices d
 JOIN cages c ON d.cage_id = c.id
-WHERE c.user_id = $1 AND d.status IN ('on', 'auto');
+WHERE c.user_id = $1 AND d.mode IN ('on', 'auto');
 
 -- name: get_devices_assignable
 SELECT id, name FROM devices WHERE cage_id IS NULL;

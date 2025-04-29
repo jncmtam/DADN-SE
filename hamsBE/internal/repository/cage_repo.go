@@ -152,3 +152,20 @@ func (r *CageRepository) UpdateStatus(ctx context.Context, cageID, status string
 
 	return nil
 }
+
+func (r *CageRepository) GetCageNameByID(ctx context.Context, cageID string) (string, error) {
+	query := `
+		SELECT name
+		FROM cages
+		WHERE id = $1
+	`
+	var name string
+	err := r.db.QueryRowContext(ctx, query, cageID).Scan(&name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil // Không tìm thấy thì trả về chuỗi rỗng
+		}
+		return "", err
+	}
+	return name, nil
+}

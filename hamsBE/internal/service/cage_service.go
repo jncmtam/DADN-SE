@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
-	//"log"
 
 	"github.com/google/uuid"
 )

@@ -151,3 +151,47 @@ func (r *AutomationRepository) GetAutomationRulesBySensorID(ctx context.Context,
     }
     return rules, nil
 }
+
+func (r *AutomationRepository) GetDeviceStatusByID(ctx context.Context, ruleID string) (string, error) {
+    query, err := queries.GetQuery("get_device_status_by_ID") // Giả sử bạn có query này trong file queries
+    if err != nil {
+        return "", err
+    }
+
+    // Truy vấn lấy trạng thái thiết bị từ DB
+    row := r.db.QueryRowContext(ctx, query, ruleID)
+
+    var status string
+    err = row.Scan(&status) // Giả sử trạng thái thiết bị là một chuỗi
+    if err != nil {
+        if err == sql.ErrNoRows {
+            // Trường hợp không có dữ liệu, có thể trả về "unknown" hoặc lỗi tùy ý
+            return "unknown", nil
+        }
+        return "", err
+    }
+
+    return status, nil
+}
+
+
+func (r *AutomationRepository) GetDeviceNameByID(ctx context.Context, ruleID string) (string, error) {
+    query, err := queries.GetQuery("get_device_name_by_ID") // Đổi query thành lấy tên
+    if err != nil {
+        return "", err
+    }
+
+    row := r.db.QueryRowContext(ctx, query, ruleID)
+
+    var name string
+    err = row.Scan(&name) // Scan vào biến name
+    if err != nil {
+        if err == sql.ErrNoRows {
+            // Nếu không có dữ liệu thì trả về tên "unknown"
+            return "unknown", nil
+        }
+        return "", err
+    }
+
+    return name, nil
+}

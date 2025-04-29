@@ -23,7 +23,6 @@ var upgrader = websocket.Upgrader{
 
 
 // Hàm nhận cageID và connection, gửi dữ liệu cảm biến
-// Hàm nhận cageID và connection, gửi dữ liệu cảm biến
 func StreamSensorData(sensorRepo *repository.SensorRepository, cageID string, w http.ResponseWriter, r *http.Request) error {
 	// Log thông tin về yêu cầu WebSocket
 	log.Printf("[INFO] WebSocket connection attempt for cageID: %s from %s", cageID, r.RemoteAddr)

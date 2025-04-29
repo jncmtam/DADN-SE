@@ -52,3 +52,17 @@ DELETE FROM automation_rules WHERE device_id = $1;
 
 -- name: delete_automation_rules_by_sensor
 DELETE FROM automation_rules WHERE sensor_id = $1;
+
+-- name: get_device_status_by_ID
+SELECT d.status
+FROM devices d
+INNER JOIN automation_rules ar ON ar.device_id = d.id
+WHERE ar.id = $1
+LIMIT 1;
+
+-- name: get_device_name_by_ID
+SELECT d.name
+FROM devices d
+INNER JOIN automation_rules ar ON ar.device_id = d.id
+WHERE ar.id = $1
+LIMIT 1;

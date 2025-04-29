@@ -11,6 +11,7 @@ import (
 	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
 	ws "hamstercare/internal/websocket"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 
 		if token == "" {
 			log.Printf("[ERROR] Missing token")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization token is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization token is required"})
 			return
 		}
 
@@ -81,6 +82,36 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			log.Printf("[ERROR] %v", err)
 		}
 	})
+
+	// WebSocket để nhận thông báo realtime
+	r.GET("/ws/notifications", func(c *gin.Context) {
+		token := c.Query("token")
+
+		if token == "" {
+			log.Printf("[ERROR] Missing token")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization token is required"})
+			return
+		}
+
+		claims, err := middleware.VerifyToken(token)
+		if err != nil {
+			log.Printf("[ERROR] Invalid token: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+
+		userID := claims.UserID
+		if userID == "" {
+			log.Printf("[ERROR] Invalid claims: missing userID")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			return
+		}
+
+		if err := ws.StreamNotifications(userID, c.Writer, c.Request); err != nil {
+			log.Printf("[ERROR] %v", err)
+		}
+	})
+
 
 
 	//user := r.Group("/user")
@@ -471,6 +502,9 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device status"})
 				return
 			}
+
+			// Gửi thông báo 
+
 		
 			c.JSON(http.StatusOK, gin.H{"message": "Device status updated successfully"})
 		})
@@ -548,12 +582,169 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cage status"})
 				return
 			}
-		
+
 			c.JSON(http.StatusOK, gin.H{"message": "Cage status updated successfully"})
 		})
 		
+		r.GET("/notifications", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+
+			limitStr := c.Query("limit")
+			offsetStr := c.Query("offset")
+			limit, err := strconv.Atoi(limitStr)
+			if err != nil || limit <= 0 {
+				limit = 10 // Default limit
+			}
+			offset, err := strconv.Atoi(offsetStr)
+			if err != nil || offset < 0 {
+				offset = 0 // Default offset
+			}
+
+			rows, err := db.QueryContext(c.Request.Context(), `
+				SELECT id, cage_id, type, title, message, is_read, created_at
+				FROM notifications
+				WHERE user_id = $1
+				ORDER BY created_at DESC
+				LIMIT $2 OFFSET $3
+			`, userID.(string), limit, offset)
+			if err != nil {
+				log.Printf("[ERROR] Error querying notifications: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			defer rows.Close()
+
+			notifications := []map[string]interface{}{}
+			for rows.Next() {
+				var n struct {
+					ID        string
+					CageID    string
+					Type      string
+					Title     string
+					Message   string
+					IsRead    bool
+					CreatedAt time.Time
+				}
+				if err := rows.Scan(&n.ID, &n.CageID, &n.Type, &n.Title, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
+					log.Printf("[ERROR] Error scanning notification: %v", err)
+					continue
+				}
+				notifications = append(notifications, map[string]interface{}{
+					"id":         n.ID,
+					"cage_id":    n.CageID,
+					"type":       n.Type,
+					"title":      n.Title,
+					"message":    n.Message,
+					"is_read":    n.IsRead,
+					"created_at": n.CreatedAt.Format(time.RFC3339),
+				})
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"notifications": notifications,
+				"count":         len(notifications),
+			})
+		})
+
+		r.PATCH("/notifications/:notiID/read", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+
+			notiID := c.Param("notiID")
+
+			var ownerID string
+			err := db.QueryRowContext(c.Request.Context(), `
+                SELECT user_id FROM notifications WHERE id = $1
+            `, notiID).Scan(&ownerID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+					return
+				}
+				log.Printf("[ERROR] Error checking notification ownership: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			if ownerID != userID.(string) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+				return
+			}
+
+			_, err = db.ExecContext(c.Request.Context(), `
+                UPDATE notifications
+                SET is_read = TRUE
+                WHERE id = $1
+            `, notiID)
+			if err != nil {
+				log.Printf("[ERROR] Error marking notification as read: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Notification marked as read",
+			})
+		})
+
 	}
 }
+
+			// Gửi thông báo
+			// userIDRaw, exists := c.Get("user_id")
+			// if !exists {
+			// 	log.Printf("[ERROR] user_id not found in context")
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			// 	return
+			// }
+
+			// userID, ok := userIDRaw.(string)
+			// if !ok {
+			// 	log.Printf("[ERROR] user_id is not a string")
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			// 	return
+			// }
+
+			// Lấy tên cage
+			// cageName, err := cageRepo.GetCageNameByID(c.Request.Context(), cageID)
+			// if err != nil {
+			// 	log.Printf("[ERROR] Failed to fetch cage name: %v", err)
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cage name"})
+			// 	return
+			// }
+			// if cageName == "" {
+			// 	cageName = "Cage" // fallback nếu không có tên
+			// }
+
+			// Tạo nội dung notification dựa theo status
+			// var title, message, notifType string
+			// switch req.Status {
+			// case "active":
+			// 	title = fmt.Sprintf("%s: Cage activated", cageName)
+			// 	message = "The cage was successfully activated."
+			// 	notifType = "info"
+			// case "inactive":
+			// 	title = fmt.Sprintf("%s: Cage deactivated", cageName)
+			// 	message = "The cage was deactivated and all devices were turned off."
+			// 	notifType = "warning"
+			// default:
+			// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+			// 	return
+			// }
+
+			// Gửi notification
+			// if err := notiService.SendNotificationToUser(c.Request.Context(), userID, cageID, title, notifType, message); err != nil {
+			// 	log.Printf("[ERROR] Failed to send notification: %v", err)
+			// }
 
 
 func handleDeviceAction(reqStatus string, device *model.DeviceResponse) error {

@@ -1179,7 +1179,7 @@
   - `token` (string, required): Token xác thực người dùng (được truyền dưới dạng query parameter).
 
 - **Response**:
-  - **200 OK**: 
+  - **101 Switching Protocols**: 
     - Dữ liệu cảm biến sẽ được stream trực tiếp tới client qua kết nối WebSocket.
     ```json
       {
@@ -1220,5 +1220,88 @@
     ```json
     {
       "error": "Internal Server Error"
+    }
+    ```
+
+### 14. WebSocket - Receive Realtime Notifications
+- **Method**: `WebSocket`
+- **URL**: `ws://{{base_url}}/api/ws/notifications?token=<token>`
+
+- **Parameters**:
+  - `token` (string, required): Token xác thực người dùng (truyền dưới dạng query parameter).
+
+- **Description**:
+  - Thiết lập kết nối WebSocket để nhận **thông báo realtime** dành riêng cho người dùng đã xác thực.
+  - Token phải hợp lệ và chứa `userID` để server xác định người dùng tương ứng.
+  - Khi nhiệt độ > 35 oC, độ ẩm > 80 %, water < 20% => notification type warning được gửi lên (sau 20p sẽ thông báo lại nếu vẫn còn vượt ngưỡng)
+  - Khi thiết bị được bật/ tăt bởi chế độ auto => notification type info được gửi lên
+  - Khi thiết bị bị lỗi trong quá trình bật/tắt trong chế độ auto =>  notification type error được gửi lên
+
+- **Response**:
+  - **101 Switching Protocols**:
+    - Kết nối WebSocket thành công, server sẽ stream thông báo tới client theo thời gian thực.
+
+    ```json
+    {
+        "id": "b369b937-adbe-4e44-8bf7-e2a5de076a66",
+        "type": "warning",
+        "title": "temperature: High temperature detected",
+        "is_read": false,
+        "time": "2025-04-29T07:13:28.976942Z"
+    }
+    ```
+  - **400 Bad Request**:
+    - **Missing token**:
+    ```json
+    {
+      "error": "Authorization token is required"
+    }
+    ```
+
+  - **401 Unauthorized**:
+    - **Invalid token**:
+    ```json
+    {
+      "error": "Invalid token"
+    }
+    ```
+
+  - **401 Unauthorized**:
+    - **Invalid token claims (missing userID)**:
+    ```json
+    {
+      "error": "Invalid token claims"
+    }
+    ```
+
+  - **500 Internal Server Error**:
+    - **WebSocket stream error** (Lỗi trong quá trình stream dữ liệu):
+    ```json
+    {
+      "error": "Internal Server Error"
+    }
+    ```
+
+### GET /users/notifications
+Gets user notifications.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "notifications": [
+        {...}
+      ]
+    }
+    ```
+
+### PATCH /users/notifications/:notiID/read
+Marks notification as read.
+
+- **Responses**:
+  - **200**: 
+    ```json
+    {
+      "message": "Notification marked as read"
     }
     ```
