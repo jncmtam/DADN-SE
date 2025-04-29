@@ -42,3 +42,7 @@ SELECT EXISTS (
   SELECT 1 FROM cages WHERE user_id = $1 AND name = $2
 );
 
+-- name: update_cage_status
+UPDATE cages
+SET status = $1
+WHERE id = $2;

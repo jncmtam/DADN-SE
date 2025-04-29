@@ -22,11 +22,13 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
+	automationRepo := repository.NewAutomationRepository(db)
+
 	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationRepo)
 
 	sensorRepo := repository.NewSensorRepository(db)
-	sensorService := service.NewSensorService(sensorRepo, cageRepo)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo, automationRepo)
 
 
 	otpRepo := repository.NewOTPRepository(db)
@@ -297,7 +299,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		admin.POST("/sensors", func(c *gin.Context) {
 			var req struct {
 				Name string `json:"name" binding:"required"`
-				Type string `json:"type" binding:"required,oneof=temperature humidity light distance"`
+				Type string `json:"type" binding:"required,oneof=temperature humidity light water"`
 				CageID string `json:"cageID"` // cageID có thể null
 			}
 			if err := c.ShouldBindJSON(&req); err != nil {
@@ -328,8 +330,8 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				unit = "%"
 			case "light":
 				unit = "lux"
-			case "distance":
-				unit = "%"	
+			case "water":
+				unit = "mm"	
 			default:
 				unit = "unknown"
 			}
@@ -427,56 +429,58 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 		// Xóa một thiết bị (device)
 		admin.DELETE("/devices/:deviceID", func(c *gin.Context) {
 			deviceID := c.Param("deviceID")
-
-			err := deviceService.DeleteDevice(c.Request.Context(), deviceID)
+		
+			err := deviceService.UnassignDevice(c.Request.Context(), deviceID)
 			if err != nil {
 				switch {
-					case errors.Is(err, service.ErrInvalidUUID): 
-						log.Printf("[ERROR] Invalid UUID format for deviceID: %s", deviceID)
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-					case errors.Is(err, service.ErrDeviceNotFound):
-						log.Printf("[ERROR] Device not found: %s", deviceID)
-						c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
-					default:
-						log.Printf("[ERROR] Failed to deleting device %s: %v", deviceID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-					}
-					return
+				case errors.Is(err, service.ErrInvalidUUID):
+					log.Printf("[ERROR] Invalid UUID format for deviceID: %s", deviceID)
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+				case errors.Is(err, service.ErrDeviceNotFound):
+					log.Printf("[ERROR] Device not found: %s", deviceID)
+					c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
+				default:
+					log.Printf("[ERROR] Failed to unassign device %s: %v", deviceID, err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				}
+				return
 			}
-			
-			log.Printf("[INFO] Device deleted successfully: %s", deviceID)
-
+		
+			log.Printf("[INFO] Device removed from cage successfully: %s", deviceID)
+		
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Device deleted successfully",
+				"message": "Device removed from cage successfully",
 			})
 		})
+		
 
 		// Xóa một cảm biến (sensor)
 		admin.DELETE("/sensors/:sensorID", func(c *gin.Context) {
 			sensorID := c.Param("sensorID")
-
-			err := sensorService.DeleteSensor(c.Request.Context(), sensorID)
+		
+			err := sensorService.UnassignSensor(c.Request.Context(), sensorID)
 			if err != nil {
 				switch {
-					case errors.Is(err, service.ErrInvalidUUID): 
-						log.Printf("[ERROR] Invalid UUID format for sensorID: %s", sensorID)
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-					case errors.Is(err, service.ErrSensorNotFound):
-						log.Printf("[ERROR] Sensor not found: %s", sensorID)
-						c.JSON(http.StatusNotFound, gin.H{"error": "Sensor not found"})
-					default:
-						log.Printf("[ERROR] Failed to deleting sensor %s: %v", sensorID, err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-					}
-					return
+				case errors.Is(err, service.ErrInvalidUUID):
+					log.Printf("[ERROR] Invalid UUID format for sensorID: %s", sensorID)
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
+				case errors.Is(err, service.ErrSensorNotFound):
+					log.Printf("[ERROR] Sensor not found: %s", sensorID)
+					c.JSON(http.StatusNotFound, gin.H{"error": "Sensor not found"})
+				default:
+					log.Printf("[ERROR] Failed to unassign sensor %s: %v", sensorID, err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				}
+				return
 			}
-			
-			log.Printf("[INFO] Sensor deleted successfully: %s", sensorID)
-
+		
+			log.Printf("[INFO] Sensor unassigned successfully: %s", sensorID)
+		
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Sensor deleted successfully",
+				"message": "Sensor unassigned successfully",
 			})
 		})
+		
 
 		// Xem chi tiết của một chuồng (cage).
 		admin.GET("/cages/:cageID", func(c *gin.Context) {
@@ -518,7 +522,7 @@ func SetupAdminRoutes(r *gin.RouterGroup, db *sql.DB) {
 				deviceMap := map[string]interface{}{
 					"id":     device.ID,
 					"name":   device.Name,
-					"status": device.Status,
+					"status": device.Mode,
 				}
 				devicesRes = append(devicesRes, deviceMap)
 			}

@@ -4,7 +4,6 @@ import (
 	"hamstercare/api"
 	"hamstercare/internal/database"
 	"hamstercare/internal/database/queries"
-	//"hamstercare/internal/mqtt"
 	"log"
 	"os"
 	"time"
@@ -12,9 +11,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	
 )
-
 
 func main() {
 	err := godotenv.Load()
@@ -32,6 +29,8 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer database.CloseDB(db)
+
+	database.StartSensorListener(db)
 
 	r := gin.Default()
 
@@ -58,13 +57,16 @@ func main() {
 		log.Println("PORT not set, defaulting to 8080")
 	}
 
-	//go mqtt.StartMQTTClientSub(db, "localhost:1883")
+	// broker := os.Getenv("MQTT_BROKER")
+    // if broker == "" {
+    //     log.Fatal("MQTT_BROKER environment variable is not set")
+    // }
 
+    // go mqtt.StartMQTTClientSub(db, broker)
 
 	api.SetupRoutes(r, db)
 	log.Printf("Starting server on port %s...", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-
 }

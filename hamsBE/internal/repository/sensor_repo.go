@@ -7,6 +7,7 @@ import (
 	"errors"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
+	"math"
 )
 
 type SensorRepository struct{
@@ -38,6 +39,11 @@ func (r *SensorRepository) GetSensorsByCageID(ctx context.Context, cageID string
         ); err != nil {
             return nil, err
         }
+
+		if sensor.Type == "water" {
+			sensor.Unit = "%"
+		}
+
         sensors = append(sensors, sensor)
     }
     return sensors, nil
@@ -139,4 +145,71 @@ func (r *SensorRepository) GetSensorsAssignable(ctx context.Context) ([]*model.S
 	}
 
 	return sensors, nil
+}
+
+func (r *SensorRepository) GetSensorsValuesByCage(ctx context.Context, cageID string) (map[string]float64, error) {
+	query, err := queries.GetQuery("get_sensors_values_by_cage")
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, cageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	sensorValues := make(map[string]float64)
+
+	for rows.Next() {
+		var sensorID string
+		var value sql.NullFloat64
+		var sensorType sql.NullString
+
+		if err := rows.Scan(&sensorID, &value, &sensorType); err != nil {
+			return nil, err
+		}
+
+		val := 0.0
+		if value.Valid {
+			val = value.Float64
+		}
+
+		// Nếu type = water, chia cho 30
+		if sensorType.Valid && sensorType.String == "water" {
+			val = (val / 30.0) * 100 
+		}
+
+		// Làm tròn 2 chữ số thập phân
+		val = math.Round(val*100) / 100
+
+		sensorValues[sensorID] = val
+	}
+
+	if len(sensorValues) == 0 {
+		return nil, errors.New("no sensors found for the given cage")
+	}
+
+	return sensorValues, nil
+}
+
+func (r *SensorRepository) UnassignOwner(ctx context.Context, sensorID string) error {
+	query, err := queries.GetQuery("unassign_sensor_owner") 
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.ExecContext(ctx, query, sensorID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("sensor not found")
+	}
+	return nil
 }

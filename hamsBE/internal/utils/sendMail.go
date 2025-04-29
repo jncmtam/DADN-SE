@@ -1,21 +1,26 @@
 package utils
 
 import (
-    "fmt"
-    "os"
-    "github.com/sendgrid/sendgrid-go"
-    "github.com/sendgrid/sendgrid-go/helpers/mail"
+	"fmt"
+	"os"
+
+	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
 // SendEmail sends an email to the specified recipient using SendGrid with an HTML body.
 func SendEmail(to, subject, body, otp string) error {
     // Validate environment variables
     fromEmail := os.Getenv("EMAIL")
+    sendgridAPIKey := os.Getenv("SENDGRID_API_KEY")
+
     if fromEmail == "" {
         return fmt.Errorf("EMAIL environment variable is not set")
     }
+    if sendgridAPIKey == "" {
+        return fmt.Errorf("SENDGRID_API_KEY environment variable is not set")
+    }
 
-    sendgridAPIKey := os.Getenv("SENDGRID_API_KEY")
     if sendgridAPIKey == "" {
         return fmt.Errorf("SENDGRID_API_KEY environment variable is not set")
     }
