@@ -18,7 +18,8 @@ entity "Cages" as C {
   --
   name : string
   user_id : UUID [FK -> Users.id]
-  status : enum(on, off)
+  status : enum(inactive, active)
+  num_device : integer
   created_at : timestamp
   updated_at : timestamp
 }
@@ -27,20 +28,21 @@ entity "Sensors" as S {
   + id : UUID [PK]
   --
   name : string
-  type : enum(temperature, humidity, light, distance, weight)
+  type : enum(temperature, humidity, light, distance)
   value : float
   unit : string
   cage_id : UUID [FK -> Cages.id]
   created_at : timestamp
+  updated_at : timestamp
 }
 
-entity "Statistic" as ST{
+entity "Statistic" as STT{
   + id : UUID [PK]
   --
   cage_id : UUID [FK -> Cages.id]
-  water_refill_SL : int
-  food_refill_SL : int
+  water_refill_sl : int
   create_at : timestamp
+  updated_at : timestamp
 }
 
 entity "Devices" as D {
@@ -49,7 +51,7 @@ entity "Devices" as D {
   name : string
   type : enum(display, lock, light, pump, fan)
   status : enum(on, off, auto)
-  last_status : enum(on, off, auto) <-- ** Before unactive cage
+  last_status : enum(on, off, auto) 
   cage_id : UUID [FK -> Cages.id]
   created_at : timestamp
   updated_at : timestamp
@@ -60,38 +62,62 @@ entity "AutomationRules" as AR {
   --
   sensor_id : UUID [FK -> Sensors.id]
   device_id : UUID [FK -> Devices.id]
-  condition : enum(>, <, =, >=, <=)
+  cage_id : UUID [FK -> Cages.id]
+  condition : enum(>, <, =)
   threshold : float
-  unit : string (C,%,lux,mm,g)
-  action : enum(turn_on, turn_off)
+  action : enum(turn_on, turn_off, refill, lock)
   created_at : timestamp
-}
-
-entity "ScheduleRules" as SR {
-  + id : UUID [PK]
-  --
-  device_id : UUID [FK -> Devices.id]
-  execution_time : TIME
-  days : TEXT[]  -- Chỉ nhận giá trị từ ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  action : enum(turn_on, turn_off)
-  created_at : timestamp
+  updated_at : timestamp
 }
 
 
 entity "Notifications" as N {
   + id : UUID [PK]
   --
-  message : string
   user_id : UUID [FK -> Users.id]
+  cage_id : UUID [FK -> Cages.id]
+  type : enum('info', 'warning', 'error')
+  title : string 
+  message : string
+  is_read : boolean
   created_at : timestamp
+}
+
+entity "OTPRequests" as O {
+  + id : UUID [PK]
+  --
+  user_id : UUID [FK -> Users.id]
+  otp_code : string
+  expires_at : timestamp
+  is_used : boolean
+  created_at : timestamp
+}
+
+entity "RefreshTokens" as RT {
+  + id : UUID [PK]
+  --
+  user_id : UUID [FK -> Users.id]
+  token : string
+  expires_at : timestamp
+  created_at : timestamp
+}
+
+entity "Settings" as SET {
+  + cage_id : UUID [PK, FK -> Cages.id]
+  --
+  high_water_usage_threshold : integer
+  created_at : timestamp
+  updated_at : timestamp
 }
 
 U ||--o{ C : "owns"
 C ||--o{ S : "has"
 C ||--o{ D : "has"
+C ||--o{ STT : "collects"
 S ||--o{ AR : "triggers"
 D ||--o{ AR : "controlled by"
-D ||--o{ SR : "controlled by"
 U ||--o{ N : "receives"
-C ||--o{ ST : "shows"
+U ||--o{ O : "requests"
+U ||--o{ RT : "issues"
+C ||--|| SET : "has setting"
 @enduml

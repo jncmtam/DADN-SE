@@ -30,6 +30,8 @@ func main() {
 	}
 	defer database.CloseDB(db)
 
+	database.StartSensorListener(db)
+
 	r := gin.Default()
 
 	// Cấu hình CORS
@@ -54,6 +56,13 @@ func main() {
 		port = "8080"
 		log.Println("PORT not set, defaulting to 8080")
 	}
+
+	// broker := os.Getenv("MQTT_BROKER")
+    // if broker == "" {
+    //     log.Fatal("MQTT_BROKER environment variable is not set")
+    // }
+
+    // go mqtt.StartMQTTClientSub(db, broker)
 
 	api.SetupRoutes(r, db)
 	log.Printf("Starting server on port %s...", port)

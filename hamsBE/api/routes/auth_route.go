@@ -346,7 +346,7 @@ func SetupAuthRoutes(r *gin.RouterGroup, db *sql.DB) {
 			}
 
 			// Lấy thông tin người dùng hiện tại
-			user, err := userRepo.GetUserByID(c.Request.Context(), userID)
+			_, err := userRepo.GetUserByID(c.Request.Context(), userID)
 			if err != nil {
 				log.Printf("Failed to fetch user: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user: " + err.Error()})
@@ -411,7 +411,7 @@ func SetupAuthRoutes(r *gin.RouterGroup, db *sql.DB) {
 
 			// Cập nhật database với đường dẫn mới
 			avatarURL := fmt.Sprintf("/avatars/%s", filename)
-			user, err = authService.UpdateAvatar(c.Request.Context(), userID, avatarURL)
+			user, err := authService.UpdateAvatar(c.Request.Context(), userID, avatarURL)
 			if err != nil {
 				log.Printf("Failed to update avatar: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update avatar: " + err.Error()})

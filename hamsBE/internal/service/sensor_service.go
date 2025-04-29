@@ -11,10 +11,11 @@ import (
 type SensorService struct {
 	SensorRepo *repository.SensorRepository
 	CageRepo *repository.CageRepository
+	AutomationRepo *repository.AutomationRepository
 }
 
-func NewSensorService(SensorRepo *repository.SensorRepository, CageRepo *repository.CageRepository) *SensorService {
-	return &SensorService{SensorRepo: SensorRepo, CageRepo: CageRepo}
+func NewSensorService(SensorRepo *repository.SensorRepository, CageRepo *repository.CageRepository, AutomationRepo *repository.AutomationRepository) *SensorService {
+	return &SensorService{SensorRepo: SensorRepo, CageRepo: CageRepo, AutomationRepo: AutomationRepo}
 }
 
 func (s *SensorService) GetSensorsByCageID(ctx context.Context, cageID string) ([]*model.SensorResponse, error) {
@@ -83,6 +84,34 @@ func (s *SensorService) DeleteSensor(ctx context.Context, sensorID string) error
 
 	return s.SensorRepo.DeleteSensorByID(ctx, sensorID)
 }
+
+func (s *SensorService) UnassignSensor(ctx context.Context, sensorID string) error {
+	if sensorID == "" {
+		return errors.New("sensorID is required")
+	}
+
+	if err := IsValidUUID(sensorID); err != nil {
+		return err 
+	}
+	
+	exists, err := s.SensorRepo.SensorExists(ctx, sensorID)
+	if err != nil {
+		return fmt.Errorf("error checking sensor existence: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("%w: sensor with ID %s does not exist", ErrSensorNotFound, sensorID)
+	}
+
+	// Xóa các automation_rule có sensorID đó
+	err = s.AutomationRepo.DeleteRulesBySensorID(ctx, sensorID)
+	if err != nil {
+		return fmt.Errorf("error delete automation rules of sensor: %w", err)
+	}
+
+	// Xóa owner của sensor
+	return s.SensorRepo.UnassignOwner(ctx, sensorID)
+}
+
 
 func (s *SensorService) IsSensorNameExists(ctx context.Context, name string) (bool, error) {
 	if name == "" {

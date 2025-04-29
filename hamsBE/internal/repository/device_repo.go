@@ -48,25 +48,32 @@ func (r *DeviceRepository) GetDevicesByCageID(ctx context.Context, cageID string
 	if err != nil {
 		return nil, err
 	}
+
 	rows, err := r.db.QueryContext(ctx, query, cageID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var devices []*model.DeviceResponse
-    for rows.Next() {
-        device := &model.DeviceResponse{}
-        if err := rows.Scan(
-            &device.ID, &device.Name, &device.Status, &device.Type,
-        ); err != nil {
-            return nil, err
-        }
-        devices = append(devices, device)
-    }
+	var devices []*model.DeviceResponse
+	for rows.Next() {
+		device := &model.DeviceResponse{}
+		if err := rows.Scan(
+			&device.ID,
+			&device.Name,
+			&device.Type,
+			&device.Status,
+			&device.Mode,
+			&device.LastMode,
+		); err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
 
-    return devices, nil
+	return devices, nil
 }
+
 
 func (r *DeviceRepository) GetDevicesAssignable(ctx context.Context) ([]*model.DeviceListResponse, error) {
 	query, err := queries.GetQuery("get_devices_assignable")
@@ -101,7 +108,7 @@ func (r *DeviceRepository) GetDeviceByID(ctx context.Context, deviceID string) (
 
 	device := &model.DeviceResponse{}
 	err = r.db.QueryRowContext(ctx, query, deviceID).Scan(
-		&device.ID, &device.Name, &device.Status, &device.Type,
+		&device.ID, &device.Name, &device.Mode, &device.Type,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -191,6 +198,29 @@ func (r *DeviceRepository) AssignToCage(ctx context.Context, deviceID, cageID st
 	return nil
 }
 
+func (r *DeviceRepository) UnassignOwner(ctx context.Context, deviceID string) error {
+	query, err := queries.GetQuery("unassign_device_owner") // file .sql bạn mới tạo
+	if err != nil {
+		return err
+	}
+
+	// Vì query vẫn cần 2 tham số, nên truyền nil vào vị trí cageID
+	result, err := r.db.ExecContext(ctx, query, deviceID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("device not found")
+	}
+	return nil
+}
+
+
 func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID string) (int, error) {
 	query, err := queries.GetQuery("count_active_devices_by_user")
 	if err != nil {
@@ -204,4 +234,48 @@ func (r *DeviceRepository) CountActiveDevicesByUser(ctx context.Context, userID 
 	}
 
 	return count, nil
+}
+
+
+func (r *DeviceRepository) UpdateDeviceMode(ctx context.Context, deviceID, mode string) error {
+	query, err := queries.GetQuery("update_device_mode") 
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, mode, deviceID)
+	if err != nil {
+		return errors.New("failed to update device mode: " + err.Error())
+	}
+
+	return nil
+}
+
+func (r *DeviceRepository) SaveLastMode(ctx context.Context, deviceID, lastMode string) error {
+	query, err := queries.GetQuery("update_device_last_mode")
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, lastMode, deviceID)
+	if err != nil {
+		return errors.New("failed to save last mode: " + err.Error())
+	}
+
+	return nil
+}
+
+
+func (r *DeviceRepository) UpdateDeviceName(ctx context.Context, deviceID, newNameDevice string) error {
+	query, err := queries.GetQuery("update_device_name") 
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, newNameDevice, deviceID)
+	if err != nil {
+		return errors.New("failed to update device name: " + err.Error())
+	}
+
+	return nil
 }
