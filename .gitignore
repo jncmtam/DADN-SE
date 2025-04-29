@@ -37,3 +37,8 @@ tmp/
 *.swo
 *.bak
 *.old
+secrets.h
+libraries/
+mosquitto/config/passwd
+mosquitto/data/
+mosquitto/log/

@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  codmosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./config:/mosquitto/config:rw
+      - ./data:/mosquitto/data:rw
+      - ./log:/mosquitto/log:rw
+    ports:
+      - "1883:1883"
+      - "9001:9001"
