@@ -10,6 +10,9 @@ import (
 	"hamstercare/internal/model"
 	"hamstercare/internal/repository"
 	"hamstercare/internal/service"
+	ws "hamstercare/internal/websocket"
+	"strconv"
+	"strings"
 	"time"
 
 	"log"
@@ -24,17 +27,91 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 	cageRepo := repository.NewCageRepository(db)
 	cageService := service.NewCageService(cageRepo, userRepo)
 
-	deviceRepo := repository.NewDeviceRepository(db)
-	deviceService := service.NewDeviceService(deviceRepo, cageRepo)
-
-	sensorRepo := repository.NewSensorRepository(db)
-	sensorService := service.NewSensorService(sensorRepo, cageRepo)
-
 	automationRepo := repository.NewAutomationRepository(db)
 	automationService := service.NewAutomationService(automationRepo)
 
 	scheduleRepo := repository.NewScheduleRepository(db)
 	scheduleService := service.NewScheduleService(scheduleRepo)
+
+	deviceRepo := repository.NewDeviceRepository(db)
+	deviceService := service.NewDeviceService(deviceRepo, cageRepo, automationRepo)
+
+	sensorRepo := repository.NewSensorRepository(db)
+	sensorService := service.NewSensorService(sensorRepo, cageRepo, automationRepo)
+
+	// WebSocket để nhận dữ liệu cảm biến của cage
+	r.GET("/user/cages/:cageID/sensors-data", func(c *gin.Context) {
+		cageID := c.Param("cageID")
+		token := c.Query("token")
+
+		if token == "" {
+			log.Printf("[ERROR] Missing token")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization token is required"})
+			return
+		}
+
+		claims, err := middleware.VerifyToken(token)
+		if err != nil {
+			log.Printf("[ERROR] Invalid token: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+
+		entityExists, err := cageRepo.IsExistsID(c.Request.Context(), cageID)
+		if err != nil {
+			log.Printf("[ERROR] Error fetching cage %s: %v", cageID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		if !entityExists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cage not found"})
+			return
+		}
+
+		owned, err := cageRepo.IsOwnedByUser(c.Request.Context(), claims.UserID, cageID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			return
+		}
+		if !owned {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+			return
+		}
+
+		if err := ws.StreamSensorData(sensorRepo, cageID, c.Writer, c.Request); err != nil {
+			log.Printf("[ERROR] %v", err)
+		}
+	})
+
+	// WebSocket để nhận thông báo realtime
+	r.GET("/ws/notifications", func(c *gin.Context) {
+		token := c.Query("token")
+
+		if token == "" {
+			log.Printf("[ERROR] Missing token")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization token is required"})
+			return
+		}
+
+		claims, err := middleware.VerifyToken(token)
+		if err != nil {
+			log.Printf("[ERROR] Invalid token: %v", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+
+		userID := claims.UserID
+		if userID == "" {
+			log.Printf("[ERROR] Invalid claims: missing userID")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			return
+		}
+
+		if err := ws.StreamNotifications(userID, c.Writer, c.Request); err != nil {
+			log.Printf("[ERROR] %v", err)
+		}
+	})
+
 
 
 	//user := r.Group("/user")
@@ -155,7 +232,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				deviceMap := map[string]interface{}{
 					"id":     device.ID,
 					"name":   device.Name,
-					"status": device.Status,
+					"status": device.Mode,
 				}
 		
 				if device.Type == "pump" {
@@ -209,7 +286,7 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			c.JSON(http.StatusOK, gin.H{
 				"id": device.ID,
 				"name": device.Name,
-				"status": device.Status,
+				"status": device.Mode,
 				"action_type": action_type,
 				"automation_rule": automationRules,
 				"schedule_rule": scheduleRules,
@@ -393,11 +470,313 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 			})
 		})
 
+		// Set device status
+		r.PUT("/devices/:deviceID/status", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+		
+			var req struct {
+				Status string `json:"status"` // on/off/auto
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+			if strings.TrimSpace(req.Status) == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Status is required"})
+				return
+			}
+		
+			device, err := deviceService.GetDeviceByID(c.Request.Context(), deviceID)
+			if err != nil {
+				log.Printf("[ERROR] Fetching device %s: %v", deviceID, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch device"})
+				return
+			}
+		
+			if err := handleDeviceAction(req.Status, device); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		
+			if err := deviceService.UpdateDeviceMode(c.Request.Context(), deviceID, req.Status); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device status"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"message": "Device status updated successfully"})
+		})
+		
+		// Update device name
+		r.PUT("/devices/:deviceID/name", ownershipMiddleware(deviceRepo, "deviceID"), func(c *gin.Context) {
+			deviceID := c.Param("deviceID")
+		
+			var req struct {
+				Name string `json:"name"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+			if strings.TrimSpace(req.Name) == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
+				return
+			}
+		
+			// Check duplicate name
+			exists, err := deviceService.IsDeviceNameExists(c.Request.Context(), req.Name)
+			if err != nil {
+				log.Printf("[ERROR] Failed to check device name uniqueness: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			if exists {
+				log.Printf("[ERROR] Device name already exists: %s", req.Name)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Device name already exists"})
+				return
+			}
+		
+			if err := deviceService.UpdateDeviceName(c.Request.Context(), deviceID, req.Name); err != nil {
+				log.Printf("[ERROR] Failed to update device name: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device name"})
+				return
+			}
+		
+			c.JSON(http.StatusOK, gin.H{"message": "Device name updated successfully"})
+		})
+		
+		// Set cages status
+		r.PUT("/cages/:cageID/status", ownershipMiddleware(cageRepo, "cageID"), func(c *gin.Context) {
+			cageID := c.Param("cageID")
+		
+			var req struct {
+				Status string `json:"status"` // active/inactive
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+				return
+			}
+		
+			switch req.Status {
+			case "inactive":
+				// Tắt hết device trong cage
+				if err := deviceService.TurnOffDevicesInCage(c.Request.Context(), cageID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to turn off devices"})
+					return
+				}
+			case "active":
+				// Khôi phục trạng thái last mode của device
+				if err := deviceService.RestoreDevicesInCage(c.Request.Context(), cageID); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to restore devices"})
+					return
+				}
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+				return
+			}
+		
+			// Update lại trạng thái cage
+			if err := cageService.UpdateCageStatus(c.Request.Context(), cageID, req.Status); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cage status"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "Cage status updated successfully"})
+		})
+		
+		r.GET("/notifications", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+
+			limitStr := c.Query("limit")
+			offsetStr := c.Query("offset")
+			limit, err := strconv.Atoi(limitStr)
+			if err != nil || limit <= 0 {
+				limit = 10 // Default limit
+			}
+			offset, err := strconv.Atoi(offsetStr)
+			if err != nil || offset < 0 {
+				offset = 0 // Default offset
+			}
+
+			rows, err := db.QueryContext(c.Request.Context(), `
+				SELECT id, cage_id, type, title, message, is_read, created_at
+				FROM notifications
+				WHERE user_id = $1
+				ORDER BY created_at DESC
+				LIMIT $2 OFFSET $3
+			`, userID.(string), limit, offset)
+			if err != nil {
+				log.Printf("[ERROR] Error querying notifications: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+			defer rows.Close()
+
+			notifications := []map[string]interface{}{}
+			for rows.Next() {
+				var n struct {
+					ID        string
+					CageID    string
+					Type      string
+					Title     string
+					Message   string
+					IsRead    bool
+					CreatedAt time.Time
+				}
+				if err := rows.Scan(&n.ID, &n.CageID, &n.Type, &n.Title, &n.Message, &n.IsRead, &n.CreatedAt); err != nil {
+					log.Printf("[ERROR] Error scanning notification: %v", err)
+					continue
+				}
+				notifications = append(notifications, map[string]interface{}{
+					"id":         n.ID,
+					"cage_id":    n.CageID,
+					"type":       n.Type,
+					"title":      n.Title,
+					"message":    n.Message,
+					"is_read":    n.IsRead,
+					"created_at": n.CreatedAt.Format(time.RFC3339),
+				})
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"notifications": notifications,
+				"count":         len(notifications),
+			})
+		})
+
+		r.PATCH("/notifications/:notiID/read", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				log.Printf("[ERROR] user_id not found in context")
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
+
+			notiID := c.Param("notiID")
+
+			var ownerID string
+			err := db.QueryRowContext(c.Request.Context(), `
+                SELECT user_id FROM notifications WHERE id = $1
+            `, notiID).Scan(&ownerID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					c.JSON(http.StatusNotFound, gin.H{"error": "Notification not found"})
+					return
+				}
+				log.Printf("[ERROR] Error checking notification ownership: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			if ownerID != userID.(string) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Permission denied"})
+				return
+			}
+
+			_, err = db.ExecContext(c.Request.Context(), `
+                UPDATE notifications
+                SET is_read = TRUE
+                WHERE id = $1
+            `, notiID)
+			if err != nil {
+				log.Printf("[ERROR] Error marking notification as read: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Notification marked as read",
+			})
+		})
+
 	}
 }
 
+			// Gửi thông báo
+			// userIDRaw, exists := c.Get("user_id")
+			// if !exists {
+			// 	log.Printf("[ERROR] user_id not found in context")
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			// 	return
+			// }
+
+			// userID, ok := userIDRaw.(string)
+			// if !ok {
+			// 	log.Printf("[ERROR] user_id is not a string")
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+			// 	return
+			// }
+
+			// Lấy tên cage
+			// cageName, err := cageRepo.GetCageNameByID(c.Request.Context(), cageID)
+			// if err != nil {
+			// 	log.Printf("[ERROR] Failed to fetch cage name: %v", err)
+			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch cage name"})
+			// 	return
+			// }
+			// if cageName == "" {
+			// 	cageName = "Cage" // fallback nếu không có tên
+			// }
+
+			// Tạo nội dung notification dựa theo status
+			// var title, message, notifType string
+			// switch req.Status {
+			// case "active":
+			// 	title = fmt.Sprintf("%s: Cage activated", cageName)
+			// 	message = "The cage was successfully activated."
+			// 	notifType = "info"
+			// case "inactive":
+			// 	title = fmt.Sprintf("%s: Cage deactivated", cageName)
+			// 	message = "The cage was deactivated and all devices were turned off."
+			// 	notifType = "warning"
+			// default:
+			// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+			// 	return
+			// }
+
+			// Gửi notification
+			// if err := notiService.SendNotificationToUser(c.Request.Context(), userID, cageID, title, notifType, message); err != nil {
+			// 	log.Printf("[ERROR] Failed to send notification: %v", err)
+			// }
 
 
+func handleDeviceAction(reqStatus string, device *model.DeviceResponse) error {
+    userID := "user1"
+    cageID := "cage1"
+
+    var action int
+    switch reqStatus {
+    case "on":
+        action = 1
+    case "off", "auto":
+        action = 0
+    default:
+        return fmt.Errorf("invalid status value")
+    }
+
+    // Xử lý hành động thiết bị
+    if err := service.HandleDeviceAction(userID, cageID, device.ID, device.Type, action); err != nil {
+        return fmt.Errorf("failed to handle device action: %w", err)
+    }
+
+    // Nếu là thiết bị "pump", tự động tắt sau 5 giây nếu trạng thái là "on"
+    if device.Type == "pump" && reqStatus == "on" {
+        go func(userID, cageID, deviceID, deviceType string) {
+            time.Sleep(5 * time.Second)
+            if err := service.HandleDeviceAction(userID, cageID, deviceID, deviceType, 0); err != nil {
+                log.Printf("[ERROR] Failed to auto-turn off pump %s: %v", deviceID, err)
+            } else {
+                log.Printf("[DEBUG] Pump %s auto-turned off after 5 seconds", deviceID)
+            }
+        }(userID, cageID, device.ID, device.Type)
+    }
+
+    return nil
+}
 
 // OwnershipChecker định nghĩa interface kiểm tra quyền sở hữu
 type ownershipChecker interface {

@@ -4,11 +4,12 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"hamstercare/internal/database/queries"
 	"hamstercare/internal/model"
 )
 
-type CageRepository struct{
+type CageRepository struct {
 	db *sql.DB
 }
 
@@ -31,7 +32,6 @@ func (r *CageRepository) CreateACageForID(ctx context.Context, nameCage string, 
 	}
 	return cage, nil
 }
-
 
 func (r *CageRepository) GetCagesByID(ctx context.Context, userID string) ([]*model.CageResponse, error) {
 	query, err := queries.GetQuery("get_cages_by_user_id")
@@ -58,7 +58,6 @@ func (r *CageRepository) GetCagesByID(ctx context.Context, userID string) ([]*mo
 	return cages, nil
 }
 
-
 func (r *CageRepository) DeleteCageByID(ctx context.Context, cageID string) error {
 	query, err := queries.GetQuery("delete_cage_by_id")
 	if err != nil {
@@ -79,7 +78,7 @@ func (r *CageRepository) GetACageByID(ctx context.Context, cageID string) (*mode
 		&cage.Status, &cage.CreatedAt, &cage.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil 
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -111,21 +110,20 @@ func (r *CageRepository) IsExistsID(ctx context.Context, cageID string) (bool, e
 	return r.CageExists(ctx, cageID)
 }
 
-
 // Kiểm tra device và sensor có cùng cage không bằng 1 query duy nhất
 func (r *CageRepository) IsSameCage(ctx context.Context, deviceID, sensorID string) (bool, error) {
-    query, err := queries.GetQuery("check_deviceID_isSameCage_sensorID")
+	query, err := queries.GetQuery("check_deviceID_isSameCage_sensorID")
 	if err != nil {
 		return false, err
 	}
 	var count int
-	
-    err = r.db.QueryRowContext(ctx, query, deviceID, sensorID).Scan(&count)
-    if err != nil {
-        return false, err
-    }
 
-    return count > 0, nil
+	err = r.db.QueryRowContext(ctx, query, deviceID, sensorID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
 
 func (r *CageRepository) DoesCageNameExist(ctx context.Context, userID string, name string) (bool, error) {
@@ -136,4 +134,35 @@ func (r *CageRepository) DoesCageNameExist(ctx context.Context, userID string, n
 	var exists bool
 	err = r.db.QueryRowContext(ctx, query, userID, name).Scan(&exists)
 	return exists, err
+}
+
+func (r *CageRepository) UpdateStatus(ctx context.Context, cageID, status string) error {
+	query, err := queries.GetQuery("update_cage_status")
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.ExecContext(ctx, query, status, cageID)
+	if err != nil {
+		return errors.New("failed to update cage status: " + err.Error())
+	}
+
+	return nil
+}
+
+func (r *CageRepository) GetCageNameByID(ctx context.Context, cageID string) (string, error) {
+	query := `
+		SELECT name
+		FROM cages
+		WHERE id = $1
+	`
+	var name string
+	err := r.db.QueryRowContext(ctx, query, cageID).Scan(&name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil // Không tìm thấy thì trả về chuỗi rỗng
+		}
+		return "", err
+	}
+	return name, nil
 }
