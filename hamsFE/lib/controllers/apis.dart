@@ -8,7 +8,6 @@ import 'package:hamsFE/models/device.dart';
 import 'package:hamsFE/models/noti.dart';
 import 'package:hamsFE/models/rule.dart';
 import 'package:hamsFE/models/sensor.dart';
-import 'package:hamsFE/views/sample_data.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
