@@ -1282,7 +1282,7 @@
     }
     ```
 
-### GET /users/notifications
+### GET /notifications
 Gets user notifications.
 
 - **Responses**:
@@ -1295,7 +1295,7 @@ Gets user notifications.
     }
     ```
 
-### PATCH /users/notifications/:notiID/read
+### PATCH /notifications/:notiID/read
 Marks notification as read.
 
 - **Responses**:

@@ -502,9 +502,6 @@ func SetupUserRoutes(r *gin.RouterGroup, db *sql.DB) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device status"})
 				return
 			}
-
-			// Gửi thông báo 
-
 		
 			c.JSON(http.StatusOK, gin.H{"message": "Device status updated successfully"})
 		})

@@ -17,25 +17,22 @@ var upgrader = websocket.Upgrader{
 		origin := r.Header.Get("Origin")
 		log.Printf("[INFO] WebSocket connection origin: %s", origin)
 		// Đảm bảo rằng chỉ các origin hợp lệ mới được chấp nhận
-		return true // Hoặc kiểm tra origin cụ thể ở đây
+		return true 
 	},
 }
 
 
 // Hàm nhận cageID và connection, gửi dữ liệu cảm biến
 func StreamSensorData(sensorRepo *repository.SensorRepository, cageID string, w http.ResponseWriter, r *http.Request) error {
-	// Log thông tin về yêu cầu WebSocket
 	log.Printf("[INFO] WebSocket connection attempt for cageID: %s from %s", cageID, r.RemoteAddr)
 	
-	// Thử nâng cấp kết nối WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("[ERROR] Failed to upgrade connection: %v", err)  // Log lỗi khi không thể upgrade kết nối
+		log.Printf("[ERROR] Failed to upgrade connection: %v", err) 
 		return fmt.Errorf("failed to upgrade connection: %w", err)
 	}
 	defer conn.Close()
 	
-	// Log khi kết nối WebSocket thành công
 	log.Printf("[INFO] WebSocket connection established for cageID: %s", cageID)
 	
 	// Tiến hành gửi dữ liệu cảm biến
@@ -46,7 +43,6 @@ func StreamSensorData(sensorRepo *repository.SensorRepository, cageID string, w 
 			return fmt.Errorf("failed to fetch sensor data: %w", err)
 		}
 
-		// Log dữ liệu cảm biến trước khi gửi
 		log.Printf("[INFO] Sending sensor data for cageID %s: %v", cageID, sensorData)
 
 		if err := conn.WriteJSON(sensorData); err != nil {
@@ -70,7 +66,6 @@ func getSensorData(sensorRepo *repository.SensorRepository, cageID string) (map[
 		return nil, fmt.Errorf("failed to fetch sensor data from repository: %w", err)
 	}
 
-	// Trả về dữ liệu cảm biến dưới dạng map
 	return sensorData, nil
 }
 

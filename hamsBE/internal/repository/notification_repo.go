@@ -38,7 +38,7 @@ func (r *NotificationRepository) SaveNotification(ctx context.Context, notificat
 		&savedNotification.Type,
 		&savedNotification.Title,
 		&savedNotification.IsRead,
-		&savedNotification.Time,
+		&savedNotification.CreatedAt,
 	)
 
 	if err != nil {
