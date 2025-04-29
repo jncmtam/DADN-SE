@@ -72,8 +72,9 @@ class _ViewUserState extends State<AdminViewUser> {
         ),
       ),
       body: Container(
+        height: MediaQuery.of(context).size.height,
         decoration: BoxDecoration(
-          color: kBase0,
+          color: lappBackground,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: SingleChildScrollView(
@@ -82,16 +83,6 @@ class _ViewUserState extends State<AdminViewUser> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Avatar
-                Center(
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundImage: NetworkImage('https://example.com/default-avatar.png',
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16),
-                // Name
                 Text(
                   participant.name,
                   style: TextStyle(
@@ -283,46 +274,13 @@ class _ViewUserState extends State<AdminViewUser> {
                                         color: lSectionTitle,
                                       ),
                                     ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Switch(
-                                          value: cages[index].status.toLowerCase() == 'on',
-                                          onChanged: (value) async {
-                                            setState(() {
-                                              // Update the status of the specific cage
-                                              cages[index].status =
-                                                  value ? 'on' : 'off';
-                                            });
-                                            // Optionally, make an API call to update the status on the server
-                                            try {
-                                              // await APIs.updateCageStatus(cages[index].id, value ? 'on' : 'off');
-                                            } catch (e) {
-                                              // Revert the change if the API call fails
-                                              setState(() {
-                                                cages[index].status =
-                                                    value ? 'off' : 'on';
-                                              });
-                                            }
-                                          },
-                                          activeColor: Colors.white,
-                                          activeTrackColor:
-                                              Color(0xFF2C5D51), // dark green track
-                                          inactiveThumbColor: Colors.white,
-                                          inactiveTrackColor: Colors.grey.shade300,
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          splashRadius: 0.0,
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ),
                               );
                             },
                           ),
 
-                SizedBox(height: 30),
+                // SizedBox(height: 30),
               ],
             ),
           ),

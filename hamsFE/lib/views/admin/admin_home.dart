@@ -72,7 +72,7 @@ class _AdminHomeState extends State<AdminHome> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: lappBackground,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),

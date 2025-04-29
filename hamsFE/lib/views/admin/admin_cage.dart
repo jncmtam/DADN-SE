@@ -846,7 +846,7 @@ class _AdminCageState extends State<AdminCage> {
 
       body: Container(
         decoration: BoxDecoration(
-          color: kBase0,
+          color: lappBackground,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Padding(
