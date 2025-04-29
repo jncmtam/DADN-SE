@@ -254,12 +254,25 @@ class APIs {
     }
   }
 
-  static Future<void> enableCage(String cageId) async {
-    return;
-  }
+  static Future<void> setCageStatus(String cageId, bool isEnabled) async {
+    Uri url = Uri.parse('$baseUrl/cages/$cageId/status');
 
-  static Future<void> disableCage(String cageId) async {
-    return;
+    final response = await http.put(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+      body: jsonEncode(
+          <String, String>{'status': isEnabled ? 'inactive' : 'active'}),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to set cage status: $error');
+    }
   }
 
   static Future<UDetailedCage> getCageDetails(String cageId) async {
@@ -301,7 +314,7 @@ class APIs {
   // Device APIs
   static Future<void> setDeviceStatus(
       String deviceId, DeviceStatus status) async {
-    Uri url = Uri.parse('$baseUrl/devices/$deviceId');
+    Uri url = Uri.parse('$baseUrl/devices/$deviceId/status');
 
     // create json payload
     final payload = {
@@ -456,27 +469,27 @@ class APIs {
   // Notification APIs
 
   static Future<List<MyNotification>> getUserNotifications() async {
-    return sampleNotifications;
+    // return sampleNotifications;
 
-    // Uri url = Uri.parse('$baseUrl/notifications');
+    Uri url = Uri.parse('$baseUrl/notifications');
 
-    // final response = await http.get(
-    //   url,
-    //   headers: <String, String>{
-    //     'Content-Type': 'application/json',
-    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
-    //   },
-    // );
+    final response = await http.get(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+    );
 
-    // if (response.statusCode == 200) {
-    //   List<dynamic> notifications = jsonDecode(response.body)['notifications'];
-    //   return notifications
-    //       .map((notification) => MyNotification.fromJson(notification))
-    //       .toList();
-    // } else {
-    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-    //   throw Exception('Failed to get notifications: $error');
-    // }
+    if (response.statusCode == 200) {
+      List<dynamic> notifications = jsonDecode(response.body)['notifications'];
+      return notifications
+          .map((notification) => MyNotification.fromJson(notification))
+          .toList();
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get notifications: $error');
+    }
   }
 
   static Future<void> markNotificationAsRead(String notificationId) async {
@@ -499,11 +512,11 @@ class APIs {
   }
 
   static WebSocketChannel listenUserNotifications() {
-    return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
+    // return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
 
-    // final token = SessionManager().getJwt();
-    // final url = Uri.parse('$baseUrl/ws/notifications?token=$token');
-    // return WebSocketChannel.connect(url);
+    final token = SessionManager().getJwt();
+    final url = Uri.parse('$websocketUrl/ws/notifications?token=$token');
+    return WebSocketChannel.connect(url);
   }
 
   //////////////////// Admin APIs /////////////////////////////////

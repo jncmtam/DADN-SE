@@ -54,11 +54,7 @@ class _UserHomeState extends State<UserHome> {
 
   Future<void> _toggleCageStatus(String cageId, bool isEnabled) async {
     try {
-      if (isEnabled) {
-        await APIs.disableCage(cageId);
-      } else {
-        await APIs.enableCage(cageId);
-      }
+      await APIs.setCageStatus(cageId, isEnabled);
 
       final activeCnt = await APIs.getUserActiveDevices();
       setState(() {

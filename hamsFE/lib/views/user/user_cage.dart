@@ -143,42 +143,67 @@ class _UserCageScreenState extends State<UserCageScreen> {
             }
           }
 
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Utils.displayInfo('Cage ID', _cage.id),
-                  Utils.displayInfo(
-                    'Status',
-                    _cage.isEnabled ? 'Enabled' : 'Disabled',
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Sensors (${_cage.sensors.length})',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: lSectionTitle,
+          return Stack(
+            children: [
+              Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (event) {
+                  if (!_cage.isEnabled) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text('Please enable the cage to perform actions.'),
+                        backgroundColor: warningStatus,
+                      ),
+                    );
+                  }
+                },
+                child: AbsorbPointer(
+                  absorbing: !_cage.isEnabled,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Utils.displayInfo('Cage ID', _cage.id),
+                          Utils.displayInfo(
+                            'Status',
+                            _cage.isEnabled ? 'Enabled' : 'Disabled',
+                          ),
+                          SizedBox(height: 20),
+                          Text(
+                            'Sensors (${_cage.sensors.length})',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: lSectionTitle,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          _buildSensorList(),
+                          SizedBox(height: 20),
+                          Text(
+                            'Devices (${_cage.devices.length})',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: lSectionTitle,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          _buildDeviceList(),
+                        ],
+                      ),
                     ),
                   ),
-                  SizedBox(height: 10),
-                  _buildSensorList(),
-                  SizedBox(height: 20),
-                  Text(
-                    'Devices (${_cage.devices.length})',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: lSectionTitle,
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  _buildDeviceList(),
-                ],
+                ),
               ),
-            ),
+              if (!_cage.isEnabled)
+                Container(
+                  color: Colors.grey.withOpacity(0.3),
+                )
+            ],
           );
         },
       ),

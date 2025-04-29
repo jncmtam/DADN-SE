@@ -1,29 +1,76 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:hamsFE/controllers/permission.dart';
 import '../../controllers/apis.dart';
 import '../../models/user.dart';
 import '../constants.dart';
 import '../utils.dart';
+import 'package:image_picker/image_picker.dart';
 
-class AdminProfile extends StatelessWidget {
+class AdminProfile extends StatefulWidget {
   final User user;
   const AdminProfile({super.key, required this.user});
 
   @override
+  State<AdminProfile> createState() => _AdminProfileState();
+}
+
+class _AdminProfileState extends State<AdminProfile> {
+  late User _user;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = widget.user;
+  }
+
+  Future<void> _updateUsername(String newUsername) async {
+    try {
+      bool success = await APIs.changeUsername(newUsername);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(success ? 'Username updated' : 'Failed to update username'),
+          backgroundColor: success ? successStatus : failStatus,
+        ),
+      );
+
+      if (success) {
+        User updatedUser = await APIs.getUserInfo();
+        setState(() {
+          _user = updatedUser;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Something went wrong'),
+          backgroundColor: debugStatus,
+        ),
+      );
+      debugPrint('Error: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: lappBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 60,
         backgroundColor: kBase2,
-        title: Center(
-          child: Text(
-            'Profile & Settings',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: kBase0,
-            ),
+        centerTitle: true,
+        title: Text(
+          'Profile & Settings',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: kBase0,
           ),
         ),
       ),
@@ -36,48 +83,66 @@ class AdminProfile extends StatelessWidget {
             children: [
               // Avatar
               Center(
-                child: FutureBuilder(
-                  future: APIs.getUserAvatar(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return CircleAvatar(
-                        radius: 70,
-                        backgroundColor: lcardBackground,
-                        child: CircularProgressIndicator(),
-                      );
-                    } else if (snapshot.hasError) {
-                      return CircleAvatar(
-                        radius: 70,
-                        backgroundColor: lcardBackground,
-                        child: Icon(Icons.error),
-                      );
-                    } else {
-                      return ClipOval(
-                        child: Image.memory(
-                          snapshot.data!,
-                          width: 140,
-                          height: 140,
-                          fit: BoxFit.fill,
-                        ),
-                      );
-                    }
-                  },
+                child: GestureDetector(
+                  onTap: () => _pickAndUploadAvatar(context),
+                  child: FutureBuilder(
+                    future: APIs.getUserAvatar(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return CircleAvatar(
+                          radius: 70,
+                          backgroundColor: lcardBackground,
+                          child: CircularProgressIndicator(),
+                        );
+                      } else if (snapshot.hasError) {
+                        return CircleAvatar(
+                          radius: 70,
+                          backgroundColor: lcardBackground,
+                          child: Icon(Icons.error),
+                        );
+                      } else {
+                        return ClipOval(
+                          child: Image.memory(
+                            snapshot.data!,
+                            width: 140,
+                            height: 140,
+                            fit: BoxFit.fill,
+                          ),
+                        );
+                      }
+                    },
+                  ),
                 ),
               ),
               SizedBox(height: 16),
               // Name
-              Text(
-                user.name,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: lPrimaryText,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _user.name,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: lPrimaryText,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _showChangeUsernameDialog(context),
+                    child: Icon(
+                      Icons.edit,
+                      color: lPrimaryText,
+                      size: 20,
+                    ),
+                  )
+                ],
               ),
+
               SizedBox(height: 8),
               // Email
               Text(
-                user.email,
+                _user.email,
                 style: TextStyle(
                   fontSize: 16,
                   color: lNormalText,
@@ -85,13 +150,14 @@ class AdminProfile extends StatelessWidget {
               ),
               SizedBox(height: 16),
               // Profile Information
+              // Utils.displayInfo('ID', user.id),
               Divider(),
-              Utils.displayInfo('Role', user.role),
+              Utils.displayInfo('Role', _user.role),
               Divider(),
-              Utils.displayInfo('Joined on', user.joinDate),
+              Utils.displayInfo('Joined on', _user.joinDate),
               Divider(),
               Utils.displayInfo(
-                  'Email Verified', user.emailVerified ? 'Yes' : 'No'),
+                  'Email Verified', _user.emailVerified ? 'Yes' : 'No'),
               Divider(),
               Row(
                 children: [
@@ -102,7 +168,8 @@ class AdminProfile extends StatelessWidget {
                       onPressed: () => _showChangePasswordDialog(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: secondaryButton,
-                        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        padding:
+                            EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -129,7 +196,8 @@ class AdminProfile extends StatelessWidget {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
-                        padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                        padding:
+                            EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -180,6 +248,12 @@ class AdminProfile extends StatelessWidget {
                   labelText: 'New Password',
                 ),
               ),
+              // TextField(
+              //   controller: TextEditingController(),
+              //   decoration: InputDecoration(
+              //     labelText: 'Confirm New Password',
+              //   ),
+              // ),
             ],
           ),
           actions: [
@@ -198,7 +272,8 @@ class AdminProfile extends StatelessWidget {
                 String newPassword = newPasswdController.text;
 
                 try {
-                  bool success = await APIs.changePassword(currentPassword, newPassword);
+                  bool success =
+                      await APIs.changePassword(currentPassword, newPassword);
 
                   if (!context.mounted) return;
 
@@ -219,9 +294,7 @@ class AdminProfile extends StatelessWidget {
                     ),
                   );
 
-                  if (kDebugMode) {
-                    print('Error: $e');
-                  }
+                  debugPrint('Error: $e');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -238,5 +311,114 @@ class AdminProfile extends StatelessWidget {
         );
       },
     );
+  }
+
+  void _showChangeUsernameDialog(BuildContext context) {
+    TextEditingController usernameController = TextEditingController();
+    showDialog(
+      barrierDismissible: false,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            'Change Username',
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: lPrimaryText),
+          ),
+          content: TextField(
+            controller: usernameController,
+            decoration: InputDecoration(
+              labelText: 'New Username',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: failStatus,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _updateUsername(usernameController.text.trim());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryButton,
+              ),
+              child: Text(
+                'Change',
+                style: TextStyle(
+                  color: primaryButtonContent,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndUploadAvatar(BuildContext context) async {
+    bool granted = await requestImagePermission();
+    if (!granted) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Permission denied"),
+            backgroundColor: failStatus,
+          ),
+        );
+      }
+      return;
+    }
+
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile == null) return;
+
+    File avatarFile = File(pickedFile.path);
+    final fileSize = await avatarFile.length();
+
+    if (fileSize > 5 * 1024 * 1024) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("File size exceeds 5MB"),
+            backgroundColor: failStatus,
+          ),
+        );
+        return;
+      }
+    }
+
+    try {
+      await APIs.changeUserAvatar(avatarFile.path);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Avatar updated successfully"),
+            backgroundColor: successStatus,
+          ),
+        );
+      }
+      if (!mounted) return;
+
+      setState(() {}); // refresh the avatar
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to update avatar"),
+            backgroundColor: failStatus,
+          ),
+        );
+      }
+      debugPrint('Error: $e');
+    }
   }
 }

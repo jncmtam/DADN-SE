@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:hamsFE/models/noti.dart';
 import 'package:hamsFE/views/constants.dart';
 import 'package:intl/intl.dart';
 
 class Utils {
+  static Color getStatusColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.info:
+        return primaryButton;
+      case NotificationType.error:
+        return failStatus;
+      case NotificationType.warning:
+        return warningStatus;
+      default:
+        return debugStatus;
+    }
+  }
+
   static String processDisplayValue(dynamic value) {
     if (value is List<String>) {
       return value.join(', ');
