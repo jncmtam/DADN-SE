@@ -53,41 +53,71 @@ class _ForgetPasswordState extends State<ForgetPassword> {
   void _showOTPDialog(String email) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
-          title: Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Enter OTP & New Password'),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          title: const Text('Reset Password'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _otpController,
+                  decoration: const InputDecoration(
+                    labelText: 'OTP',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _newPasswdController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'New Password',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: failStatus,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _resetPassword(email),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryButton,
+                          padding: EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        child: const Text(
+                          'Submit',
+                          style: TextStyle(
+                            color: primaryButtonContent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _otpController,
-                decoration: InputDecoration(labelText: 'OTP'),
-              ),
-              SizedBox(height: 10),
-              TextField(
-                controller: _newPasswdController,
-                obscureText: true,
-                decoration: InputDecoration(labelText: 'New Password'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: _sendOTP,
-              child: Text('Resend OTP'),
-            ),
-            ElevatedButton(
-              onPressed: () => _resetPassword(email),
-              child: Text('Submit'),
-            ),
-          ],
         );
       },
     );
@@ -109,11 +139,13 @@ class _ForgetPasswordState extends State<ForgetPassword> {
       );
 
       Navigator.pop(context);
+
+      Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to reset password'),
-          backgroundColor: debugStatus,
+          backgroundColor: failStatus,
         ),
       );
 
@@ -124,8 +156,9 @@ class _ForgetPasswordState extends State<ForgetPassword> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: lappBackground,
       appBar: AppBar(
-        toolbarHeight: 60,
+        toolbarHeight: lAppBarHeight,
         backgroundColor: kBase2,
         title: Text(
           'Forget Password',
@@ -157,9 +190,16 @@ class _ForgetPasswordState extends State<ForgetPassword> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: _isSendingOtp ? null : _sendOTP,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryButton,
+                padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              ),
               child: _isSendingOtp
                   ? CircularProgressIndicator(color: Colors.white)
-                  : Text('Send OTP'),
+                  : Text(
+                      'Send OTP',
+                      style: TextStyle(color: primaryButtonContent),
+                    ),
             ),
           ],
         ),

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hamsFE/controllers/apis.dart';
-import 'package:hamsFE/views/temp.dart';
 import '../models/user.dart';
 import 'admin/admin_home.dart';
 import 'admin/admin_profile.dart';

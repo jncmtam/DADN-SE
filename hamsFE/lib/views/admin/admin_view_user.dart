@@ -136,15 +136,18 @@ class _ViewUserState extends State<AdminViewUser> {
                                 APIs.deleteUser(participant.id).then((value) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('User deleted successfully'),
+                                      content:
+                                          Text('User deleted successfully'),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
-                                  Navigator.pop(context, true); // Return to previous screen with reload flag
+                                  Navigator.pop(context,
+                                      true); // Return to previous screen with reload flag
                                 }).catchError((error) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Failed to delete user: $error'),
+                                      content:
+                                          Text('Failed to delete user: $error'),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -155,7 +158,8 @@ class _ViewUserState extends State<AdminViewUser> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 30, vertical: 10),
                               ),
                               child: Text(
                                 'Yes',
@@ -174,7 +178,8 @@ class _ViewUserState extends State<AdminViewUser> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 10),
                               ),
                               child: Text(
                                 'Cancel',
@@ -222,8 +227,8 @@ class _ViewUserState extends State<AdminViewUser> {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                AdminCage(cageInit: null, userId: participant.id),
+                            builder: (context) => AdminCage(
+                                cageInit: null, userId: participant.id),
                           ),
                         );
                         if (result == true) {
@@ -231,7 +236,8 @@ class _ViewUserState extends State<AdminViewUser> {
                           _loadcages();
                         }
                       },
-                      icon: Icon(Icons.add_circle, color: secondaryButtonContent),
+                      icon:
+                          Icon(Icons.add_circle, color: secondaryButtonContent),
                       iconSize: 35,
                       constraints: BoxConstraints(minWidth: 40, minHeight: 40),
                     ),

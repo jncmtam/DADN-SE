@@ -113,7 +113,7 @@ class ConditionalRule extends AutomationRule {
       value: 0,
       unit: unit,
     );
-    final name = sensor.getSensorName();
+    final name = sensor.type.toString().split('.').last;
     final op = conditionalOperatorToString(operator);
     final value = threshold.toStringAsFixed(1);
     final actionStr = actionTypeToString(action);

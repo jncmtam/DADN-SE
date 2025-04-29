@@ -27,7 +27,8 @@ class USensor {
         (e) => e.toString() == 'SensorType.${json['type']}',
         orElse: () => SensorType.temperature,
       ),
-      value: json['value'] ?? -1.0,
+      // value: json['value'] ?? -1.0,
+      value: -1.0,
       unit: json['unit'] ?? 'N/A',
     );
   }
@@ -35,8 +36,8 @@ class USensor {
   String getSensorName() {
     // concat first 4 char of sensor type + last 3 digits of sensorId
     final typeName = type.toString().split('.').last.substring(0, 4);
-    final idSuffix = id.substring(id.length - 3);
-    return '$typeName$idSuffix';
+    // final idSuffix = id.substring(id.length - 3);
+    return typeName;
   }
 }
 

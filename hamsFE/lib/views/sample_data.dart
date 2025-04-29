@@ -79,7 +79,7 @@ List<USensor> sampleSensors = [
 UDetailedCage sampleDetailedCage = UDetailedCage(
   id: '5ca7747f-2e0d-4eb5-9b62-3d17e937332b',
   name: 'Cage 1',
-  deviceCount: 5,
+  // deviceCount: 5,
   isEnabled: true,
   devices: sampleDevices,
   sensors: sampleSensors,
@@ -117,28 +117,28 @@ UDetailedDevice sampleDetailedDevice = UDetailedDevice(
 List<MyNotification> sampleNotifications = [
   MyNotification(
     id: '1',
-    title: 'Device 1 Status Update',
+    title: 'Device 1: Fan turned on',
     type: NotificationType.info,
     timestamp: DateTime.now(),
     read: false,
   ),
   MyNotification(
     id: '2',
-    title: 'Device 2 Status Update',
+    title: 'Device 2: Temperature is high',
     type: NotificationType.warning,
     timestamp: DateTime.now().subtract(const Duration(hours: 1)),
     read: false,
   ),
   MyNotification(
     id: '3',
-    title: 'Device 3 Status Update',
+    title: 'Device 3: Failed to open light',
     type: NotificationType.error,
     timestamp: DateTime.now().subtract(const Duration(days: 1)),
     read: true,
   ),
   MyNotification(
     id: '4',
-    title: 'Device 4 Status Update',
+    title: 'Device 4: Light turned off',
     type: NotificationType.info,
     timestamp: DateTime.now().subtract(const Duration(days: 2)),
     read: false,

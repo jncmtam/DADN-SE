@@ -18,7 +18,7 @@ class _ChartExampleState extends State<ChartExample> {
   List<UCage> cages = [];
   String? selectedCageId;
   bool isLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +51,7 @@ class _ChartExampleState extends State<ChartExample> {
 
   Future<void> _fetchChartData() async {
     if (selectedCageId == null) return;
-    
+
     setState(() {
       isLoading = true;
     });
@@ -60,13 +60,12 @@ class _ChartExampleState extends State<ChartExample> {
       // Get current date and 7 days ago for the date range
       final now = DateTime.now();
       final sevenDaysAgo = now.subtract(const Duration(days: 7));
-      
+
       final response = await APIs().getChartData(
-        selectedCageId!,
-        sevenDaysAgo.toIso8601String().split('T')[0],
-        now.toIso8601String().split('T')[0]
-      );
-      
+          selectedCageId!,
+          sevenDaysAgo.toIso8601String().split('T')[0],
+          now.toIso8601String().split('T')[0]);
+
       if (mounted) {
         setState(() {
           statistics = response.statistics;
@@ -89,6 +88,7 @@ class _ChartExampleState extends State<ChartExample> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: lappBackground,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: lAppBarHeight,
@@ -149,26 +149,32 @@ class _ChartExampleState extends State<ChartExample> {
                       ),
                       SizedBox(height: 20),
                       // Summary Cards
-                      if (summary != null) Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: kBase2,
-                          borderRadius: BorderRadius.circular(12),
+                      if (summary != null)
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: kBase2,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildSummaryCard('Average',
+                                  summary!.average.toStringAsFixed(1)),
+                              _buildSummaryCard('Highest',
+                                  summary!.highest.toStringAsFixed(1)),
+                              _buildSummaryCard(
+                                  'Lowest', summary!.lowest.toStringAsFixed(1)),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildSummaryCard('Average', summary!.average.toStringAsFixed(1)),
-                            _buildSummaryCard('Highest', summary!.highest.toStringAsFixed(1)),
-                            _buildSummaryCard('Lowest', summary!.lowest.toStringAsFixed(1)),
-                          ],
-                        ),
-                      ),
                       SizedBox(height: 20),
                       // Chart
                       Expanded(
                         child: statistics.isEmpty
-                            ? Center(child: Text('No data available for selected cage'))
+                            ? Center(
+                                child:
+                                    Text('No data available for selected cage'))
                             : BarChart(
                                 BarChartData(
                                   gridData: FlGridData(show: false),
@@ -179,11 +185,14 @@ class _ChartExampleState extends State<ChartExample> {
                                         reservedSize: 30,
                                         interval: 1,
                                         getTitlesWidget: (value, meta) {
-                                          if (value.toInt() < 0 || value.toInt() >= statistics.length) {
+                                          if (value.toInt() < 0 ||
+                                              value.toInt() >=
+                                                  statistics.length) {
                                             return const Text('');
                                           }
                                           return Padding(
-                                            padding: const EdgeInsets.only(top: 5),
+                                            padding:
+                                                const EdgeInsets.only(top: 5),
                                             child: Text(
                                               statistics[value.toInt()].day,
                                               style: const TextStyle(
@@ -230,7 +239,8 @@ class _ChartExampleState extends State<ChartExample> {
                                       left: BorderSide(color: Colors.black),
                                     ),
                                   ),
-                                  barGroups: statistics.asMap().entries.map((entry) {
+                                  barGroups:
+                                      statistics.asMap().entries.map((entry) {
                                     return BarChartGroupData(
                                       x: entry.key,
                                       barRods: [
@@ -238,7 +248,8 @@ class _ChartExampleState extends State<ChartExample> {
                                           toY: entry.value.value,
                                           color: Colors.blue,
                                           width: 20,
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
                                         ),
                                       ],
                                     );

@@ -26,7 +26,7 @@ class ChartData {
   final String? summary;
 
   ChartData({
-    required this.day, 
+    required this.day,
     required this.value,
     this.summary,
   });
@@ -40,7 +40,7 @@ class ChartData {
     } catch (e) {
       // If parsing fails, use the string as is (assuming it's already a short day name)
     }
-    
+
     return ChartData(
       day: dayValue,
       value: (json['value'] as num).toDouble(),

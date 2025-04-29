@@ -3,17 +3,17 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:hamsFE/controllers/session.dart';
 import 'package:hamsFE/models/cage.dart';
+import 'package:hamsFE/models/chartdata.dart';
 import 'package:hamsFE/models/device.dart';
 import 'package:hamsFE/models/noti.dart';
 import 'package:hamsFE/models/rule.dart';
 import 'package:hamsFE/models/sensor.dart';
-import 'package:hamsFE/views/sample_data.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:hamsFE/models/cageinit.dart';
-import 'package:hamsFE/models/chartdata.dart';
+
 import '../models/user.dart';
 import '../views/constants.dart';
 
@@ -253,12 +253,25 @@ class APIs {
     }
   }
 
-  static Future<void> enableCage(String cageId) async {
-    return;
-  }
+  static Future<void> setCageStatus(String cageId, bool isEnabled) async {
+    Uri url = Uri.parse('$baseUrl/cages/$cageId/status');
 
-  static Future<void> disableCage(String cageId) async {
-    return;
+    final response = await http.put(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+      body: jsonEncode(
+          <String, String>{'status': isEnabled ? 'inactive' : 'active'}),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to set cage status: $error');
+    }
   }
 
   static Future<UDetailedCage> getCageDetails(String cageId) async {
@@ -284,18 +297,70 @@ class APIs {
 
   // Sensor Data APIs
   static WebSocketChannel listenCageSensorData(String cageId) {
-    return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
+    // return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
 
-    // final token = SessionManager().getJwt();
-    // final url =
-    //     Uri.parse('$baseUrl/user/cages/$cageId/sensor-data?token=$token');
-    // return WebSocketChannel.connect(url);
+    try {
+      final token = SessionManager().getJwt();
+      final url = Uri.parse(
+        '$websocketUrl/user/cages/$cageId/sensors-data?token=$token',
+      );
+      return WebSocketChannel.connect(url);
+    } catch (e) {
+      throw Exception('Failed to connect to WebSocket: $e');
+    }
   }
 
   // Device APIs
   static Future<void> setDeviceStatus(
       String deviceId, DeviceStatus status) async {
-    return;
+    Uri url = Uri.parse('$baseUrl/devices/$deviceId/status');
+
+    // create json payload
+    final payload = {
+      'status': status.toString().split('.').last,
+    };
+
+    final response = await http.put(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to set device status: $error');
+    }
+  }
+
+  static Future<void> setDeviceStatus2(
+      String deviceId, DeviceStatus status) async {
+    Uri url = Uri.parse('$baseUrl/devices/$deviceId/control');
+
+    // create json payload
+    final payload = {
+      'action': status.toString().split('.').last,
+    };
+
+    final response = await http.post(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to set device status: $error');
+    }
   }
 
   static Future<UDetailedDevice> getDeviceDetails(String deviceId) async {
@@ -403,27 +468,27 @@ class APIs {
   // Notification APIs
 
   static Future<List<MyNotification>> getUserNotifications() async {
-    return sampleNotifications;
+    // return sampleNotifications;
 
-    // Uri url = Uri.parse('$baseUrl/notifications');
+    Uri url = Uri.parse('$baseUrl/notifications');
 
-    // final response = await http.get(
-    //   url,
-    //   headers: <String, String>{
-    //     'Content-Type': 'application/json',
-    //     'Authorization': 'Bearer ${SessionManager().getJwt()}',
-    //   },
-    // );
+    final response = await http.get(
+      url,
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${SessionManager().getJwt()}',
+      },
+    );
 
-    // if (response.statusCode == 200) {
-    //   List<dynamic> notifications = jsonDecode(response.body);
-    //   return notifications
-    //       .map((notification) => MyNotification.fromJson(notification))
-    //       .toList();
-    // } else {
-    //   final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-    //   throw Exception('Failed to get notifications: $error');
-    // }
+    if (response.statusCode == 200) {
+      List<dynamic> notifications = jsonDecode(response.body)['notifications'];
+      return notifications
+          .map((notification) => MyNotification.fromJson(notification))
+          .toList();
+    } else {
+      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
+      throw Exception('Failed to get notifications: $error');
+    }
   }
 
   static Future<void> markNotificationAsRead(String notificationId) async {
@@ -446,11 +511,11 @@ class APIs {
   }
 
   static WebSocketChannel listenUserNotifications() {
-    return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
+    // return WebSocketChannel.connect(Uri.parse(sampleWebSocketUrl));
 
-    // final token = SessionManager().getJwt();
-    // final url = Uri.parse('$baseUrl/ws/notifications?token=$token');
-    // return WebSocketChannel.connect(url);
+    final token = SessionManager().getJwt();
+    final url = Uri.parse('$websocketUrl/ws/notifications?token=$token');
+    return WebSocketChannel.connect(url);
   }
 
   //////////////////// Admin APIs /////////////////////////////////
@@ -728,7 +793,9 @@ class APIs {
       throw Exception('Failed to load cages: $error');
     }
   }
-  Future<ChartResponse> getChartData(String cageid, String startDate, String endDate) async {
+
+  Future<ChartResponse> getChartData(
+      String cageid, String startDate, String endDate) async {
     // Temporary: Return fake data while API is in development
     return ChartResponse.fromJson({
       "statistics": [
@@ -740,34 +807,7 @@ class APIs {
         {"day": "2025-04-26", "value": 25}, // Saturday
         {"day": "2025-04-27", "value": 30}, // Sunday
       ],
-      "summary": {
-        "average": 32.0,
-        "highest": 40.0,
-        "lowest": 25.0
-      }
+      "summary": {"average": 32.0, "highest": 40.0, "lowest": 25.0}
     });
-
-    // Comment out the actual API call for now
-    /*
-    Uri url = Uri.parse('$baseUrl/cages/$cageid/statistics');
-    final response = await http.get(
-      url.replace(queryParameters: {
-        'range': 'daily',
-        'start_date': startDate,
-        'end_date': endDate,
-      }),
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${SessionManager().getJwt()}'
-      },
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return ChartResponse.fromJson(data);
-    } else {
-      final error = jsonDecode(response.body)['error'] ?? 'Unknown error';
-      throw Exception('Failed to get chart data: $error');
-    }
-    */
   }
 }
