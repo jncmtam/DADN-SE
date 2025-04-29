@@ -4,6 +4,7 @@ import 'package:hamsFE/models/device.dart';
 import 'package:hamsFE/models/noti.dart';
 import 'package:hamsFE/models/rule.dart';
 import 'package:hamsFE/models/sensor.dart';
+import 'package:hamsFE/models/chartdata.dart';
 
 List<UCage> sampleCages = [
   UCage(
@@ -144,3 +145,20 @@ List<MyNotification> sampleNotifications = [
     read: false,
   ),
 ];
+
+ChartResponse sampleChartResponse = ChartResponse.fromJson({
+      "statistics": [
+        {"day": "2025-04-28", "value": 35}, // Monday (this week)
+        {"day": "2025-04-29", "value": 28}, // Tuesday
+        {"day": "2025-04-30", "value": 34}, // Wednesday
+        {"day": "2025-05-01", "value": 32}, // Thursday
+        {"day": "2025-05-02", "value": 40}, // Friday
+        {"day": "2025-05-03", "value": 25}, // Saturday
+        {"day": "2025-05-04", "value": 30}, // Sunday
+      ],
+      "summary": {
+        "average": 32.0,
+        "highest": 40.0,
+        "lowest": 25.0
+      }
+});

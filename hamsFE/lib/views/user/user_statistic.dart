@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:hamsFE/models/chartdata.dart';
-import 'package:hamsFE/controllers/apis.dart';
-import 'package:hamsFE/views/constants.dart';
 import 'package:hamsFE/models/cage.dart';
+import 'package:hamsFE/models/chartdata.dart';
+import 'package:hamsFE/views/constants.dart';
+import 'package:hamsFE/controllers/apis.dart';
 
 class ChartExample extends StatefulWidget {
   const ChartExample({super.key});
@@ -13,11 +13,11 @@ class ChartExample extends StatefulWidget {
 }
 
 class _ChartExampleState extends State<ChartExample> {
-  List<ChartData> statistics = [];
-  ChartSummary? summary;
+  bool isLoading = true;
   List<UCage> cages = [];
   String? selectedCageId;
-  bool isLoading = true;
+  List<ChartData> statistics = [];
+  ChartSummary? summary;
 
   @override
   void initState() {
@@ -51,21 +51,29 @@ class _ChartExampleState extends State<ChartExample> {
 
   Future<void> _fetchChartData() async {
     if (selectedCageId == null) return;
-
+    
     setState(() {
       isLoading = true;
     });
 
     try {
-      // Get current date and 7 days ago for the date range
+      // Get the current date
       final now = DateTime.now();
-      final sevenDaysAgo = now.subtract(const Duration(days: 7));
-
-      final response = await APIs().getChartData(
-          selectedCageId!,
-          sevenDaysAgo.toIso8601String().split('T')[0],
-          now.toIso8601String().split('T')[0]);
-
+      
+      // Calculate the most recent Monday (beginning of week)
+      final monday = now.subtract(Duration(days: now.weekday - 1));
+      final startDate = DateTime(monday.year, monday.month, monday.day);
+      
+      // Calculate the upcoming Sunday (end of week)
+      final sunday = monday.add(const Duration(days: 6));
+      final endDate = DateTime(sunday.year, sunday.month, sunday.day);
+      
+      final response = await APIs.getChartData(
+        selectedCageId!,
+        startDate.toIso8601String().split('T')[0],
+        endDate.toIso8601String().split('T')[0]
+      );
+      
       if (mounted) {
         setState(() {
           statistics = response.statistics;
@@ -79,7 +87,10 @@ class _ChartExampleState extends State<ChartExample> {
           isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load chart data: $e')),
+          SnackBar(
+            content: Text('Failed to load chart data: $e'),
+            backgroundColor: debugStatus,
+          ),
         );
       }
     }
@@ -149,32 +160,26 @@ class _ChartExampleState extends State<ChartExample> {
                       ),
                       SizedBox(height: 20),
                       // Summary Cards
-                      if (summary != null)
-                        Container(
-                          padding: EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: kBase2,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildSummaryCard('Average',
-                                  summary!.average.toStringAsFixed(1)),
-                              _buildSummaryCard('Highest',
-                                  summary!.highest.toStringAsFixed(1)),
-                              _buildSummaryCard(
-                                  'Lowest', summary!.lowest.toStringAsFixed(1)),
-                            ],
-                          ),
+                      if (summary != null) Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: kBase2,
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildSummaryCard('Average', summary!.average.toStringAsFixed(1)),
+                            _buildSummaryCard('Highest', summary!.highest.toStringAsFixed(1)),
+                            _buildSummaryCard('Lowest', summary!.lowest.toStringAsFixed(1)),
+                          ],
+                        ),
+                      ),
                       SizedBox(height: 20),
                       // Chart
                       Expanded(
                         child: statistics.isEmpty
-                            ? Center(
-                                child:
-                                    Text('No data available for selected cage'))
+                            ? Center(child: Text('No data available for selected cage'))
                             : BarChart(
                                 BarChartData(
                                   gridData: FlGridData(show: false),
@@ -185,16 +190,16 @@ class _ChartExampleState extends State<ChartExample> {
                                         reservedSize: 30,
                                         interval: 1,
                                         getTitlesWidget: (value, meta) {
-                                          if (value.toInt() < 0 ||
-                                              value.toInt() >=
-                                                  statistics.length) {
+                                          if (value.toInt() < 0 || value.toInt() >= statistics.length) {
                                             return const Text('');
                                           }
+                                          // Convert date string to weekday name
+                                          final date = DateTime.parse(statistics[value.toInt()].day);
+                                          final weekday = _getWeekdayName(date.weekday);
                                           return Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 5),
+                                            padding: const EdgeInsets.only(top: 5),
                                             child: Text(
-                                              statistics[value.toInt()].day,
+                                              weekday,
                                               style: const TextStyle(
                                                 fontSize: 12,
                                               ),
@@ -239,8 +244,7 @@ class _ChartExampleState extends State<ChartExample> {
                                       left: BorderSide(color: Colors.black),
                                     ),
                                   ),
-                                  barGroups:
-                                      statistics.asMap().entries.map((entry) {
+                                  barGroups: statistics.asMap().entries.map((entry) {
                                     return BarChartGroupData(
                                       x: entry.key,
                                       barRods: [
@@ -248,8 +252,7 @@ class _ChartExampleState extends State<ChartExample> {
                                           toY: entry.value.value,
                                           color: Colors.blue,
                                           width: 20,
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(4),
                                         ),
                                       ],
                                     );
@@ -284,5 +287,26 @@ class _ChartExampleState extends State<ChartExample> {
         ),
       ],
     );
+  }
+
+  String _getWeekdayName(int weekday) {
+    switch (weekday) {
+      case 1:
+        return 'Mon';
+      case 2:
+        return 'Tue';
+      case 3:
+        return 'Wed';
+      case 4:
+        return 'Thu';
+      case 5:
+        return 'Fri';
+      case 6:
+        return 'Sat';
+      case 7:
+        return 'Sun';
+      default:
+        return '';
+    }
   }
 }

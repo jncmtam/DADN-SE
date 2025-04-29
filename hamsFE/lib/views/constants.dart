@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 // const apiUrl = 'http://10.28.129.183:8080/api';
 // hosting backend server on ngrok
 const apiUrl =
-    'https://3975-2402-800-6327-5c1-28ea-69cc-7e58-734f.ngrok-free.app/api';
+    'localhost:8080/api';
 const websocketUrl =
     'wss://3975-2402-800-6327-5c1-28ea-69cc-7e58-734f.ngrok-free.app/api';
 
